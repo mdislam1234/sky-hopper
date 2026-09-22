@@ -1,6 +1,10 @@
 # Sky Hopper
 
-Phases 1–8 complete. Phase 9 repository preparation is in progress; deployment and final packaging are pending.
+Sky Hopper is a Flutter/Flame endless jumping game with Google Login, user-specific Supabase data, collectible coins, retry-safe result saving, a leaderboard and cosmetic skins.
+
+- Public source: https://github.com/mdislam1234/sky-hopper
+- Live Web app: https://sky-hopper-blue.vercel.app
+- Final assignment artifacts and current verification: see **Phase 9 submission** below. Earlier phase sections retain their historical verification checkpoints.
 Splash resolves authentication before Login or Home. PLAY preserves the endless jumper and retry-safe result persistence. LEADERBOARD shows public best scores through a restricted RPC; SKINS supports server-priced unlocks and owned-skin selection. Live and offline verification are distinguished below.
 
 ## Toolchain
@@ -500,6 +504,43 @@ Live production URL: [Sky Hopper](https://sky-hopper-blue.vercel.app). Vercel CL
 
 Anonymous HTTPS checks returned 200 for root, manifest, favicon and all five icon files. The live app reaches branded Login with the Google action enabled and no blank screen. This does not yet establish successful production authentication. Installation and offline caching are not verified.
 
-Production authentication configuration is pending dashboard access: Supabase URL Configuration redirected the verification browser to dashboard sign-in. The app's existing redirect is the current origin plus `/`, so the exact production redirect is `https://sky-hopper-blue.vercel.app/`. Set the production Site URL and allow that redirect while preserving local development and Android callbacks. In the existing Google Web OAuth client, verify/add authorized JavaScript origin `https://sky-hopper-blue.vercel.app` and preserve the Supabase callback `https://ittdhvlfrrjnsvdfpznl.supabase.co/auth/v1/callback`. Do not replace that callback with the Vercel origin or rotate credentials. No auth configuration changes were made by this run.
+The user confirmed production authentication URLs were configured: Supabase Site URL/redirect `https://sky-hopper-blue.vercel.app/`, Google Web OAuth JavaScript origin `https://sky-hopper-blue.vercel.app`, and the preserved Supabase callback `https://ittdhvlfrrjnsvdfpznl.supabase.co/auth/v1/callback`. Local and Android redirects were to be retained. These dashboard edits were performed by the user; their complete settings lists were not independently re-inspected by the agent.
 
-Resume after dashboard configuration/access is confirmed, then verify actual Google login, restoration, gameplay/save, leaderboard and read-only Skins behavior before release APK/ZIP packaging. Split release APKs and final submission ZIP remain pending. Application code, the 126-test baseline and database schema are unchanged.
+### Phase 9 submission
+
+**Live verification:** the user's production tab already contained an authenticated Game Over showing Saved. Read-only MCP verified the matching latest run: score 1139, height 11393, coins 65, played_at `2026-09-22 06:11:18.818663+00`, a present run UUID and exactly one row for that user/run. Lifetime coins are 222, exactly the prior verified 157 plus 65. The profile has a Google identity, default selected and one owned skin. The UUID and sensitive auth fields are not published here.
+
+Home and Profile both showed 222 coins. A browser refresh restored authenticated Home on the Vercel origin with no localhost redirect or loop. The agent observed the successful authenticated outcome and refresh; the original Google consent/redirect sequence was completed before the verification resumed and was not directly watched end-to-end.
+
+Live Leaderboard loaded and refreshed, highlighted YOU, and showed server-confirmed best score 1972 / height 19724 without exposing private auth fields. Live Skins loaded the five correct catalog costs and owned/selected default state. No paid skin was purchased or real coins spent. A separate live visual run confirmed player/platforms/coins visible, bouncing, increasing HUD counters, keyboard input and Escape pause; it was exited to Home without saving an additional result. Camera regression coverage remains green; no physics, score, camera, auth, persistence or backend logic changed during Phase 9.
+
+**PWA:** HTTPS manifest/icon requests passed and the document links the branded manifest/favicon. Standalone configuration and normal/maskable/Apple icons remain present. PWA INSTALLABILITY: NOT FULLY VERIFIED. Actual installation was not performed. The Flutter retirement worker does not provide offline asset caching; no full offline-support claim is made.
+
+**Automated baseline:** 126 tests passed and flutter analyze reported no issues after the last application-code change in Phase 8. Phase 9 changed documentation/ignore rules only, so the baseline was preserved without rerunning tests. The production-configured Web build passed. All three migrations retain the exact hashes above. No schema, RPC, policy, grant or manual data changes were made; the legitimate user gameplay save is the only verified production data addition.
+
+**Reproduce configured builds:** install the documented Flutter SDK, run `flutter pub get`, create an ignored local `dart_defines.local.json` with SUPABASE_URL and the public SUPABASE_PUBLISHABLE_KEY, then run:
+
+```powershell
+flutter build web --dart-define-from-file=dart_defines.local.json
+flutter build apk --release --split-per-abi --dart-define-from-file=dart_defines.local.json
+```
+
+Client artifacts contain the publishable client key by design, never privileged credentials. The local defines file must stay out of Git and the submission ZIP. Deployment uploads only compiled `build/web` using Vercel CLI, linked to `azi-tech/sky-hopper`; do not deploy the repository root or upload generated `.env.local`/`.vercel` state. No Git-triggered Flutter build has been configured on Vercel.
+
+**Signing/device limitations:** the existing Gradle release build uses the debug signing configuration. Assignment APKs are for testing/submission, not Play Store production distribution. No new signing key was created. PHYSICAL ANDROID TEST: NOT VERIFIED. Android Google deep-link return, device gameplay and persistence remain unverified on physical hardware.
+
+**Final APKs:** release split build passed in 317.5 seconds. Each APK passed Android SDK signature verification and uses the Android Debug certificate:
+
+| File in `release_apks/` | ABI | Bytes |
+| --- | --- | ---: |
+| app-armeabi-v7a-release.apk | armeabi-v7a | 14953417 |
+| app-arm64-v8a-release.apk | arm64-v8a | 17544703 |
+| app-x86_64-release.apk | x86_64 | 19044858 |
+
+`release_apks/README.txt` explains architecture selection and signing. These binary deliverables are included in the local submission ZIP, not committed to GitHub. No universal APK was generated for the final package.
+
+**Submission ZIP:** `Sky_Hopper_Final_Submission.zip` at the project root. It packages the tracked project source/documentation/configuration, all three applied migrations, Android Gradle wrapper files and `release_apks/`. It excludes `.git`, build output, `.dart_tool`, caches, local properties, environment/Dart-defines files, Vercel state and private signing material. Run `flutter pub get` after extracting; configure your own ignored runtime defines before rebuilding. Build artifacts already contain the public client configuration.
+
+**Security review:** all 108 tracked files were inspected for inappropriate generated/private content; 97 text files passed the final credential-pattern scan with zero matches. Package members are checked against an explicit allowlist, read back and compared by SHA-256 with their source files. No privileged keys, tokens, local configuration or signing credentials are included.
+
+**Assignment checklist:** Flutter/Flame 2D game, AI-assisted phased development, Supabase MCP, Google-backed authentication, user-specific data, public GitHub source, configured production Web build, HTTPS Vercel deployment and ABI-specific Android APKs are delivered. Branded PWA metadata/assets are verified; actual installation/offline caching and physical Android testing are explicitly unverified. The user's authenticated production run/save and the agent's session, screen and read-only database checks are distinguished above.
