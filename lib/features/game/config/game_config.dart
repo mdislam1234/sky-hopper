@@ -1,0 +1,30 @@
+abstract final class GameConfig {
+  static const width = 400.0;
+  static const height = 720.0;
+  static const playerWidth = 32.0;
+  static const playerHeight = 38.0;
+  static const startSurface = 620.0;
+  static const gravity = 1200.0;
+  static const jumpVelocity = -600.0;
+  static const horizontalAcceleration = 1500.0;
+  static const horizontalMaxSpeed = 240.0;
+  static const horizontalDrag = 1800.0;
+  static const fixedStep = 1 / 120;
+  static const maxFrameTime = 0.1;
+  static const platformWidth = 104.0;
+  static const platformHeight = 16.0;
+  static const minGap = 75.0;
+  static const maxGap = 100.0;
+  static const maxHorizontalStep = 90.0;
+  static const platformMargin = 12.0;
+  static const cameraZone = 280.0;
+  static const generationBuffer = 180.0;
+  static const cleanupBuffer = 140.0;
+  static const fallMargin = 80.0;
+  static const scoreScale = 10.0;
+  static const coinRadius = 10.0;
+  static const coinAbovePlatform = 42.0;
+  static const coinPlatformInterval = 2;
+  static const debug = false;
+  static const jumpHeight = jumpVelocity * jumpVelocity / (2 * gravity);
+}

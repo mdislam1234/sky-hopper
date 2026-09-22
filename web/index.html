@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="An endless sky-jumping game built with Flutter and Flame.">
+  <meta name="theme-color" content="#75CFFF">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Sky Hopper">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <title>Sky Hopper</title>
+  <style>
+    :root { color-scheme: light; background: #EAF8FF; color: #123B69; font-family: system-ui, sans-serif; }
+    body { margin: 0; }
+    #startup { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px;
+      background: linear-gradient(#75CFFF, #EAF8FF); text-align: center; }
+    #startup section { max-width: 380px; }
+    #startup img { border-radius: 24px; }
+    #startup h1 { font-size: 32px; letter-spacing: 1px; margin: 16px 0; }
+    #startup p { line-height: 1.5; }
+    #startup button { min-height: 48px; padding: 12px 24px; border: 0; border-radius: 20px;
+      background: #FFD45A; color: #123B69; font: inherit; font-weight: 700; cursor: pointer; }
+    #startup button:focus-visible { outline: 3px solid #123B69; outline-offset: 4px; }
+    #startup [hidden] { display: none; }
+    .loading-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: #123B69; animation: pulse 1s ease-in-out infinite alternate; }
+    @keyframes pulse { to { opacity: .35; } }
+    @media (prefers-reduced-motion: reduce) { .loading-dot { animation: none; } }
+  </style>
+</head>
+<body>
+  <div id="startup">
+    <section aria-label="Sky Hopper startup">
+      <img src="icons/Icon-192.png" width="96" height="96" alt="">
+      <h1>SKY HOPPER</h1>
+      <p>Jump beyond the clouds</p>
+      <p id="startup-status" role="status" aria-live="polite">Getting ready… <span class="loading-dot" aria-hidden="true"></span></p>
+      <button id="startup-retry" type="button" hidden>Reload</button>
+      <noscript><p>Enable JavaScript to play Sky Hopper. Online features require an internet connection.</p></noscript>
+    </section>
+  </div>
+  <script>
+    (() => {
+      const status = document.getElementById('startup-status');
+      const retry = document.getElementById('startup-retry');
+      const fail = () => {
+        status.textContent = 'Unable to load Sky Hopper. Check your internet connection and reload.';
+        retry.hidden = false;
+      };
+      const slow = setTimeout(() => {
+        status.textContent = 'Still loading. Check your internet connection if this takes longer.';
+        retry.hidden = false;
+      }, 30000);
+      retry.addEventListener('click', () => location.reload());
+      window.skyHopperStartup = { fail };
+      window.addEventListener('flutter-first-frame', () => {
+        clearTimeout(slow);
+        document.getElementById('startup')?.remove();
+      }, { once: true });
+    })();
+  </script>
+  <script src="flutter_bootstrap.js" async onerror="window.skyHopperStartup.fail()"></script>
+</body>
+</html>
+
