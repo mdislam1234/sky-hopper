@@ -12,12 +12,14 @@ class GameOverOverlay extends StatelessWidget {
     this.coins = 0,
     this.savePhase = SavePhase.notStarted,
     this.onRetry,
+    this.causeMessage,
     super.key,
   });
   final int score;
   final int coins;
   final SavePhase savePhase;
   final VoidCallback? onRetry;
+  final String? causeMessage;
   final bool paused;
   final VoidCallback onContinue;
   final VoidCallback onHome;
@@ -43,12 +45,19 @@ class GameOverOverlay extends StatelessWidget {
                   paused ? 'PAUSED' : 'GAME OVER',
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
-                const SizedBox(height: 12),
+                if (!paused && causeMessage != null) ...[
+                  Text(
+                    causeMessage!,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                SizedBox(height: causeMessage == null ? 12 : 4),
                 Text(
                   '${paused ? 'Score' : 'Final Score'}: $score',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: causeMessage == null ? 24 : 16),
                 Text('${paused ? 'Coins' : 'Coins Collected'}: $coins'),
                 if (!paused) ...[
                   const SizedBox(height: 12),

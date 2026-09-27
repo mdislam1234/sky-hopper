@@ -12,14 +12,35 @@ class CoinSystem {
   final List<CoinData> coins = [];
   int collected = 0;
   int _platformNumber = 0;
+  int _riskyPlatformNumber = 0;
 
   void addPlatform(PlatformData platform) {
-    // One per alternating platform, centered in a reachable landing/jump area.
+    // The normal economy stays at one coin per alternating platform.
     if (_platformNumber++ % GameConfig.coinPlatformInterval == 0) {
       coins.add(
         CoinData(
-          platform.x + platform.width / 2,
+          platform.safeCenter,
           platform.y - GameConfig.coinAbovePlatform,
+        ),
+      );
+    }
+    // A single optional bonus makes visibly risky routes worthwhile without
+    // making them mandatory or dramatically changing lifetime coin earnings.
+    if (!platform.isRisky || _riskyPlatformNumber++ % 4 != 0) return;
+    if (platform.type == PlatformType.moving) {
+      coins.add(
+        CoinData(
+          platform.originX + platform.width * 0.75,
+          platform.y - GameConfig.coinAbovePlatform - 12,
+        ),
+      );
+    } else if (platform.type == PlatformType.spike) {
+      coins.add(
+        CoinData(
+          (platform.spikesOnRight
+              ? platform.originX + platform.width - platform.spikeWidth / 2
+              : platform.originX + platform.spikeWidth / 2),
+          platform.y - GameConfig.coinAbovePlatform - 8,
         ),
       );
     }

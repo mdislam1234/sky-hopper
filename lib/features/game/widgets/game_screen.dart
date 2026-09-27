@@ -10,6 +10,7 @@ import '../config/game_config.dart';
 import '../sky_hopper_game.dart';
 import '../systems/game_state.dart';
 import '../systems/run_save_controller.dart';
+import '../systems/environment_system.dart';
 import '../models/game_result.dart';
 import 'game_hud.dart';
 import '../../skins/models/skin.dart';
@@ -201,6 +202,35 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       ),
     ),
   );
+
+  String? _causeMessage(GameOverCause? cause) => switch (cause) {
+    GameOverCause.fall => 'Missed the platform!',
+    GameOverCause.spikes => 'Hit the spikes!',
+    GameOverCause.lightning => 'Struck by lightning!',
+    null => null,
+  };
+
+  Widget _biomeNotice(Biome biome) => IgnorePointer(
+    child: Align(
+      alignment: const Alignment(0, -0.66),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.deepBlue.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.cloud.withValues(alpha: 0.7)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+          child: Text(
+            'ENTERING ${biome.label}',
+            style: Theme.of(context).textTheme.labelLarge
+                ?.copyWith(color: Colors.white, letterSpacing: 1.4),
+          ),
+        ),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: AppColors.paleSky,
@@ -224,7 +254,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                     game: _game,
                     autofocus: false,
                   ),
-                  ValueListenableBuilder<(int, RunPhase, int)>(
+                  ValueListenableBuilder<GameStatus>(
                     valueListenable: _game.status,
                     builder: (context, value, _) => Stack(
                       fit: StackFit.expand,
@@ -232,12 +262,14 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                         Align(
                           alignment: Alignment.topCenter,
                           child: GameHud(
-                            score: value.$1,
-                            coins: value.$3,
+                            score: value.score,
+                            coins: value.coins,
                             onPause: _pause,
                           ),
                         ),
-                        if (value.$2 == RunPhase.playing)
+                        if (value.biomeNotice case final biome?)
+                          _biomeNotice(biome),
+                        if (value.phase == RunPhase.playing)
                           Positioned(
                             left: 16,
                             right: 16,
@@ -247,13 +279,14 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                               children: [_control(-1), _control(1)],
                             ),
                           ),
-                        if (value.$2 != RunPhase.playing)
+                        if (value.phase != RunPhase.playing)
                           ListenableBuilder(
                             listenable: _save,
                             builder: (context, _) => GameOverOverlay(
-                              score: value.$1,
-                              coins: value.$3,
-                              paused: value.$2 == RunPhase.paused,
+                              score: value.score,
+                              coins: value.coins,
+                              paused: value.phase == RunPhase.paused,
+                              causeMessage: _causeMessage(value.cause),
                               savePhase: _save.phase,
                               onRetry: _save.retry,
                               onContinue: _continue,

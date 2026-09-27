@@ -544,3 +544,39 @@ Client artifacts contain the publishable client key by design, never privileged 
 **Security review:** all 108 tracked files were inspected for inappropriate generated/private content; 97 text files passed the final credential-pattern scan with zero matches. Package members are checked against an explicit allowlist, read back and compared by SHA-256 with their source files. No privileged keys, tokens, local configuration or signing credentials are included.
 
 **Assignment checklist:** Flutter/Flame 2D game, AI-assisted phased development, Supabase MCP, Google-backed authentication, user-specific data, public GitHub source, configured production Web build, HTTPS Vercel deployment and ABI-specific Android APKs are delivered. Branded PWA metadata/assets are verified; actual installation/offline caching and physical Android testing are explicitly unverified. The user's authenticated production run/save and the agent's session, screen and read-only database checks are distinguished above.
+
+## Sky Hopper 2.0 — Phase 10
+
+Phase 10 adds a centralized environment and hazard simulation while preserving the existing automatic-bounce controls, physics, camera, score, authentication, persistence, leaderboard and skin systems. Pure simulation state drives the Flame renderer, and a bounded difficulty director supplies tuneable generation probabilities and hazard intensity.
+
+### Environments and transitions
+
+The five altitude environments are configured in one place: Sunny from score 0, Sunset from 400, Storm from 800, Night from 1300 and Space/Upper Atmosphere from 1900. Lightweight transition bands blend sky colors, cloud tint, particle intensity and platform palettes instead of switching the scene abruptly. A short `Entering …` overlay announces each new biome.
+
+- **Sunny:** light blue sky, soft clouds and bright green platforms.
+- **Sunset:** orange, pink and purple sky tones with warmer clouds and platforms.
+- **Storm:** dark blue-gray sky, denser clouds, rain and clear hazard-warning visuals.
+- **Night:** deep blue sky, stars, moon and cool platform accents.
+- **Space:** deep navy/black sky, stars, a subtle nebula gradient, distant celestial shapes and futuristic platform accents.
+
+### Platforms, hazards and difficulty
+
+Platforms have explicit normal, moving, crumbling and spike types. Moving platforms follow predictable horizontal paths within safe bounds. Crumbling platforms show cracks before landing, accept the first landing, then collapse after a centralized delay without reactivating. Spike platforms expose a smaller lethal region beside a safe landing section, and spike contact records a clear Game Over cause.
+
+Wind zones visibly push the player with bounded force. Storm clouds move predictably and apply knockback with collision cooldowns. Lightning cycles through warning, strike and clear phases so its lethal area is telegraphed before activation. Pausing freezes the player, moving platforms, crumble timers, wind, clouds and lightning, and prevents hazard deaths. Restart resets the environment, difficulty, platform and hazard state, wind, lightning, crumble state, score, coins, camera and Game Over cause.
+
+Difficulty rises through centralized, capped profiles rather than changing the established gravity, jump velocity, steering, wrapping, camera or score formula. Generation preserves reachable horizontal and vertical gaps, inserts regular safe recovery platforms, delays advanced hazards until later score ranges and prevents unfair airborne-hazard combinations. Riskier eligible platforms can receive sparse bonus coins while the existing alternating coin economy remains intact. Off-screen platforms, coins, wind zones, clouds, lightning objects and visual particles are cleaned up to keep component counts bounded.
+
+### Verification
+
+- `dart format .`: passed; 66 files checked and no changes required.
+- `flutter analyze`: passed with **No issues found**.
+- `flutter test`: **164 passed**. The original 126 tests remain green, with 38 Phase 10 tests covering environments, thresholds and transitions; all platform and hazard types; warning/strike timing; bounded difficulty; safe-route cadence; deterministic generation; pause/restart; cleanup; Game Over integration; and 360x800, 390x844 and 1280x720 layouts. The continuation baseline increased from 162 because two final GameScreen integration tests were added for spike Game Over and full restart reset.
+- `flutter build web`: passed; the final production Web artifact was regenerated after all Phase 10 application-source changes, including the Wasm dry run.
+- Android debug compilation and packaging passed, producing `build/app/outputs/flutter-apk/app-debug.apk`. Windows Application Control blocked the Flutter tool when it attempted to start its compiler, so the signed Flutter frontend compiler was invoked directly and Gradle completed `assembleDebug`; the APK's embedded kernel SHA-256 exactly matches that fresh compiler output.
+- A development-only browser preview visibly verified all five environments, transition palettes, platform warning styles, rain, stars, celestial layers, wind, a moving storm cloud, the lightning warning/strike/clear cycle, automatic bouncing, coin progression, keyboard steering and pause. The actual GameScreen also verified gameplay, HUD progress, steering and pause. The preview has no authentication or persistence bypass in production.
+- **Manual Game Over visual check: not performed in the final browser preview.** Automated GameScreen Game Over, cause text, persistence-disabled preview behavior and Restart coverage passed.
+
+No Phase 6 persistence or Phase 7 leaderboard/skin behavior changed. All three Supabase migration files retain their recorded hashes, and **Supabase/database changes: NONE**.
+
+Not yet implemented: sound, music, haptics, combo/perfect-landing systems, near-miss scoring, daily challenges, missions, achievements, AdMob, UMP or the Play Store 2.0 release.

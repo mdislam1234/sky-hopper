@@ -25,6 +25,39 @@ abstract final class GameConfig {
   static const coinRadius = 10.0;
   static const coinAbovePlatform = 42.0;
   static const coinPlatformInterval = 2;
+  static const sunnyScore = 0;
+  static const sunsetScore = 400;
+  static const stormScore = 800;
+  static const nightScore = 1300;
+  static const spaceScore = 1900;
+  static const biomeTransitionHalfWidth = 50;
+  static const biomeNoticeDuration = 1.6;
+
+  static const movingPlatformScore = 250;
+  static const crumblingPlatformScore = 500;
+  static const windScore = 800;
+  static const stormCloudScore = 800;
+  static const spikePlatformScore = 1100;
+  static const lightningScore = 1400;
+  static const highDifficultyScore = 1800;
+
+  static const movingPlatformMinSpeed = 24.0;
+  static const movingPlatformMaxSpeed = 42.0;
+  static const movingPlatformMaxTravel = 24.0;
+  static const crumbleDelay = 0.78;
+  static const spikeWidthFraction = 0.3;
+  static const minimumSafeLandingWidth = 68.0;
+  static const windZoneWidth = 104.0;
+  static const windMinAcceleration = 220.0;
+  static const windMaxAcceleration = 430.0;
+  static const stormCloudSpeed = 34.0;
+  static const stormCloudKnockbackX = 150.0;
+  static const stormCloudKnockbackY = 175.0;
+  static const stormCloudCollisionCooldown = 0.7;
+  static const lightningWarningDuration = 0.8;
+  static const lightningStrikeDuration = 0.18;
+  static const lightningClearDuration = 1.35;
+  static const lightningWidth = 36.0;
   static const debug = false;
   static const jumpHeight = jumpVelocity * jumpVelocity / (2 * gravity);
 }

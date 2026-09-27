@@ -104,7 +104,7 @@ void main() {
   for (final x in [110.0, 69.0, 199.0]) {
     test('Descending top crossing bounces at x=$x', () {
       final state = GameState()
-        ..platforms = [const PlatformData(100, 400)]
+        ..platforms = [PlatformData(100, 400)]
         ..x = x
         ..y = 359
         ..vy = 500;
@@ -123,7 +123,7 @@ void main() {
       (205.0, 359.0, 500.0),
     ]) {
       final state = GameState()
-        ..platforms = [const PlatformData(100, 400)]
+        ..platforms = [PlatformData(100, 400)]
         ..x = values.$1
         ..y = values.$2
         ..vy = values.$3;
@@ -133,7 +133,7 @@ void main() {
   });
   test('Fast falling cannot tunnel through a top surface', () {
     final state = GameState()
-      ..platforms = [const PlatformData(100, 400)]
+      ..platforms = [PlatformData(100, 400)]
       ..x = 110
       ..y = 300
       ..vy = 10000;
@@ -143,7 +143,7 @@ void main() {
   });
   test('Wrap does not create collisions in middle of world', () {
     final state = GameState()
-      ..platforms = [const PlatformData(100, 400)]
+      ..platforms = [PlatformData(100, 400)]
       ..x = 399
       ..y = 359
       ..vy = 500
