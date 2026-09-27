@@ -13,6 +13,7 @@ class HomeScreen extends StatelessWidget {
     this.onPlay,
     this.onLeaderboard,
     this.onSkins,
+    this.onSettings,
     super.key,
   });
   final Profile? profile;
@@ -20,6 +21,7 @@ class HomeScreen extends StatelessWidget {
   final VoidCallback? onPlay;
   final VoidCallback? onLeaderboard;
   final VoidCallback? onSkins;
+  final VoidCallback? onSettings;
 
   void _showMessage(BuildContext context, String message) {
     ScaffoldMessenger.of(context)
@@ -85,6 +87,14 @@ class HomeScreen extends StatelessWidget {
             onPressed:
                 onProfile ??
                 () => _showMessage(context, 'Profile will be added later.'),
+          ),
+          const SizedBox(height: 12),
+          GameMenuButton(
+            label: 'SETTINGS',
+            icon: Icons.settings_outlined,
+            onPressed:
+                onSettings ??
+                () => _showMessage(context, 'Settings are unavailable.'),
           ),
         ],
       ),

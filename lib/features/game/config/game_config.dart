@@ -58,6 +58,13 @@ abstract final class GameConfig {
   static const lightningStrikeDuration = 0.18;
   static const lightningClearDuration = 1.35;
   static const lightningWidth = 36.0;
+  static const perfectLandingToleranceFraction = 0.18;
+  static const maximumPerfectStreak = 10;
+  static const nearMissMargin = 16.0;
+  static const feedbackNoticeDuration = 1.15;
+  static const screenShakeDuration = 0.24;
+  static const screenShakeDistance = 3.0;
+  static const approachBestThresholds = [100, 50, 10];
   static const debug = false;
   static const jumpHeight = jumpVelocity * jumpVelocity / (2 * gravity);
 }

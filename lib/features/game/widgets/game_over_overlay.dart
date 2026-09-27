@@ -13,6 +13,8 @@ class GameOverOverlay extends StatelessWidget {
     this.savePhase = SavePhase.notStarted,
     this.onRetry,
     this.causeMessage,
+    this.newPersonalBest = false,
+    this.previousBest = 0,
     super.key,
   });
   final int score;
@@ -20,6 +22,8 @@ class GameOverOverlay extends StatelessWidget {
   final SavePhase savePhase;
   final VoidCallback? onRetry;
   final String? causeMessage;
+  final bool newPersonalBest;
+  final int previousBest;
   final bool paused;
   final VoidCallback onContinue;
   final VoidCallback onHome;
@@ -45,6 +49,17 @@ class GameOverOverlay extends StatelessWidget {
                   paused ? 'PAUSED' : 'GAME OVER',
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
+                if (!paused && newPersonalBest) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'NEW PERSONAL BEST',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppColors.gold,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text('Previous best: $previousBest'),
+                ],
                 if (!paused && causeMessage != null) ...[
                   Text(
                     causeMessage!,
@@ -71,6 +86,11 @@ class GameOverOverlay extends StatelessWidget {
                       SavePhase.notStarted => 'Preparing result…',
                     }, textAlign: TextAlign.center),
                   ),
+                  if (newPersonalBest && savePhase == SavePhase.failed)
+                    Text(
+                      'Run best: $score — server save not confirmed.',
+                      textAlign: TextAlign.center,
+                    ),
                   if (savePhase == SavePhase.failed)
                     TextButton(
                       onPressed: onRetry,

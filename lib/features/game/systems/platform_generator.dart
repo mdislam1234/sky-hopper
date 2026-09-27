@@ -46,6 +46,7 @@ class PlatformData {
   bool collapsed = false;
   double crumbleElapsed = 0;
   int collapseCount = 0;
+  bool nearMissAwarded = false;
 
   bool get collidable => !collapsed;
   double get spikeWidth =>

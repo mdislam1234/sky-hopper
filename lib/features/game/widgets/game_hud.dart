@@ -7,10 +7,14 @@ class GameHud extends StatelessWidget {
     required this.score,
     required this.onPause,
     this.coins = 0,
+    this.bestScore = 0,
+    this.animateFeedback = true,
     super.key,
   });
   final int score;
+  final int bestScore;
   final int coins;
+  final bool animateFeedback;
   final VoidCallback onPause;
   @override
   Widget build(BuildContext context) => Padding(
@@ -38,8 +42,24 @@ class GameHud extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'COINS: $coins',
+                    'BEST: $bestScore',
                     style: const TextStyle(color: AppColors.deepBlue),
+                  ),
+                  TweenAnimationBuilder<double>(
+                    key: ValueKey(coins),
+                    tween: Tween(begin: animateFeedback ? 1.16 : 1, end: 1),
+                    duration: animateFeedback
+                        ? const Duration(milliseconds: 220)
+                        : Duration.zero,
+                    builder: (context, scale, child) => Transform.scale(
+                      alignment: Alignment.centerLeft,
+                      scale: scale,
+                      child: child,
+                    ),
+                    child: Text(
+                      'COINS: $coins',
+                      style: const TextStyle(color: AppColors.deepBlue),
+                    ),
                   ),
                 ],
               ),

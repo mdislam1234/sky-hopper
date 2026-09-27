@@ -4,6 +4,7 @@ import '../config/game_config.dart';
 import 'coin_system.dart';
 import 'difficulty_director.dart';
 import 'environment_system.dart';
+import 'game_feedback_event.dart';
 import 'hazard_system.dart';
 import 'platform_generator.dart';
 
@@ -19,10 +20,11 @@ class HeightScore {
 
 /// Pure fixed-step simulation: no rendering, authentication, or network access.
 class GameState {
-  GameState({this.seed = 5}) {
+  GameState({this.seed = 5, this.personalBestScore = 0}) {
     reset();
   }
   final int seed;
+  final int personalBestScore;
   late PlatformGenerator generator;
   late List<PlatformData> platforms;
   late HeightScore progress;
@@ -36,7 +38,14 @@ class GameState {
   double _accumulator = 0;
   int direction = 0;
   int bounces = 0;
+  int perfectStreak = 0;
+  int nearMisses = 0;
+  bool newPersonalBest = false;
+  final List<GameFeedbackEvent> _feedbackEvents = [];
+  final Set<int> _approachThresholdsFired = {};
+  bool _insideWind = false;
   int get score => progress.score;
+  int get displayedBestScore => max(personalBestScore, score);
   DifficultyProfile get difficulty => DifficultyDirector.forScore(score);
 
   void reset() {
@@ -54,6 +63,12 @@ class GameState {
     cameraTop = 0;
     direction = 0;
     bounces = 0;
+    perfectStreak = 0;
+    nearMisses = 0;
+    newPersonalBest = false;
+    _feedbackEvents.clear();
+    _approachThresholdsFired.clear();
+    _insideWind = false;
     _accumulator = 0;
     phase = RunPhase.playing;
     gameOverCause = null;
@@ -67,6 +82,13 @@ class GameState {
 
   void resume() {
     if (phase == RunPhase.paused) phase = RunPhase.playing;
+  }
+
+  List<GameFeedbackEvent> drainFeedbackEvents() {
+    if (_feedbackEvents.isEmpty) return const [];
+    final drained = List<GameFeedbackEvent>.unmodifiable(_feedbackEvents);
+    _feedbackEvents.clear();
+    return drained;
   }
 
   static double wrap(double x) =>
@@ -87,12 +109,44 @@ class GameState {
     for (final platform in platforms) {
       platform.advance(dt);
     }
+    final lightningPhases = {
+      for (final bolt in hazards.lightning) bolt: bolt.phase,
+    };
     hazards.advance(dt);
+    for (final bolt in hazards.lightning) {
+      final previousPhase = lightningPhases[bolt];
+      if (previousPhase != bolt.phase) {
+        if (bolt.phase == LightningPhase.warning) {
+          _feedbackEvents.add(
+            GameFeedbackEvent(
+              GameFeedbackType.lightningWarning,
+              x: bolt.x,
+              y: bolt.y,
+            ),
+          );
+        } else if (bolt.phase == LightningPhase.strike) {
+          _feedbackEvents.add(
+            GameFeedbackEvent(
+              GameFeedbackType.lightningStrike,
+              x: bolt.x,
+              y: bolt.y,
+            ),
+          );
+        }
+      }
+    }
     final oldX = x;
     final oldBottom = y + GameConfig.playerHeight;
     final windAcceleration = hazards.windAccelerationAt(
       WorldRect(x, y, GameConfig.playerWidth, GameConfig.playerHeight),
     );
+    final insideWind = windAcceleration != 0;
+    if (insideWind && !_insideWind) {
+      _feedbackEvents.add(
+        GameFeedbackEvent(GameFeedbackType.windEntered, x: x, y: y),
+      );
+    }
+    _insideWind = insideWind;
     if (direction == 0) {
       vx = vx.sign * max(0, vx.abs() - GameConfig.horizontalDrag * dt);
     } else {
@@ -128,13 +182,52 @@ class GameState {
       final innerLeft = landingX + 4;
       final innerRight = landingX + GameConfig.playerWidth - 4;
       if (landing.overlapsSpikes(innerLeft, innerRight)) {
+        perfectStreak = 0;
+        _feedbackEvents.add(
+          GameFeedbackEvent(GameFeedbackType.spikeImpact, x: x, y: y),
+        );
         _endRun(GameOverCause.spikes);
         return;
       }
       y = landing.y - GameConfig.playerHeight;
       vy = GameConfig.jumpVelocity;
       bounces++;
+      _feedbackEvents.add(
+        GameFeedbackEvent(GameFeedbackType.bounce, x: x, y: y),
+      );
+      final landingCenter = landingX + GameConfig.playerWidth / 2;
+      final isPerfect =
+          (landingCenter - landing.safeCenter).abs() <=
+          landing.safeWidth * GameConfig.perfectLandingToleranceFraction;
+      if (isPerfect) {
+        perfectStreak = min(GameConfig.maximumPerfectStreak, perfectStreak + 1);
+        _feedbackEvents.add(
+          GameFeedbackEvent(
+            GameFeedbackType.perfectLanding,
+            x: landing.safeCenter,
+            y: landing.y,
+            streak: perfectStreak,
+          ),
+        );
+      } else {
+        perfectStreak = 0;
+      }
+      if (landing.type == PlatformType.spike && !landing.nearMissAwarded) {
+        final gap = landing.spikesOnRight
+            ? landing.spikeLeft - innerRight
+            : innerLeft - landing.spikeRight;
+        if (gap >= 0 && gap <= GameConfig.nearMissMargin) {
+          landing.nearMissAwarded = true;
+          _registerNearMiss(landing.safeCenter, landing.y);
+        }
+      }
+      final crumbleWasActive = landing.crumbleActivated;
       landing.onLanded();
+      if (!crumbleWasActive && landing.crumbleActivated) {
+        _feedbackEvents.add(
+          GameFeedbackEvent(GameFeedbackType.crumble, x: x, y: landing.y),
+        );
+      }
     }
     final playerBounds = WorldRect(
       x + 3,
@@ -144,6 +237,10 @@ class GameState {
     );
     final cloudCollision = hazards.collideCloud(playerBounds);
     if (cloudCollision != null) {
+      perfectStreak = 0;
+      _feedbackEvents.add(
+        GameFeedbackEvent(GameFeedbackType.stormCloudContact, x: x, y: y),
+      );
       vx = cloudCollision.horizontalVelocity.clamp(
         -GameConfig.horizontalMaxSpeed,
         GameConfig.horizontalMaxSpeed,
@@ -151,12 +248,31 @@ class GameState {
       vy = max(vy, cloudCollision.verticalVelocity);
     }
     if (hazards.lightningHits(playerBounds)) {
+      perfectStreak = 0;
       _endRun(GameOverCause.lightning);
       return;
     }
-    coinSystem.collectAt(x, y);
+    final nearMissCount = hazards.collectNearMisses(playerBounds);
+    for (var index = 0; index < nearMissCount; index++) {
+      _registerNearMiss(x, y);
+    }
+    final collectedNow = coinSystem.collectAt(x, y);
+    for (var index = 0; index < collectedNow; index++) {
+      _feedbackEvents.add(
+        GameFeedbackEvent(GameFeedbackType.coinCollected, x: x, y: y),
+      );
+    }
+    final previousScore = score;
     progress.observe(GameConfig.startSurface - GameConfig.playerHeight - y);
-    environment.update(score);
+    _updatePersonalBest(previousScore);
+    if (environment.update(score)) {
+      _feedbackEvents.add(
+        GameFeedbackEvent(
+          GameFeedbackType.biomeChanged,
+          biome: environment.biome,
+        ),
+      );
+    }
     cameraTop = min(cameraTop, y - GameConfig.cameraZone);
     while (platforms.last.y > cameraTop - GameConfig.generationBuffer) {
       final previous = platforms.last;
@@ -165,7 +281,18 @@ class GameState {
       coinSystem.addPlatform(next);
       if (previous.type == PlatformType.normal &&
           next.type == PlatformType.normal) {
+        final lightningBefore = hazards.lightning.length;
         hazards.addBetween(previous, next, difficulty);
+        if (hazards.lightning.length > lightningBefore) {
+          final bolt = hazards.lightning.last;
+          _feedbackEvents.add(
+            GameFeedbackEvent(
+              GameFeedbackType.lightningWarning,
+              x: bolt.x,
+              y: bolt.y,
+            ),
+          );
+        }
       }
     }
     platforms.removeWhere(
@@ -179,8 +306,45 @@ class GameState {
   }
 
   void _endRun(GameOverCause cause) {
+    if (phase == RunPhase.gameOver) return;
     phase = RunPhase.gameOver;
     gameOverCause = cause;
+    perfectStreak = 0;
     direction = 0;
+    _feedbackEvents.add(
+      GameFeedbackEvent(GameFeedbackType.gameOver, x: x, y: y),
+    );
+  }
+
+  void _registerNearMiss(double eventX, double eventY) {
+    nearMisses++;
+    _feedbackEvents.add(
+      GameFeedbackEvent(GameFeedbackType.nearMiss, x: eventX, y: eventY),
+    );
+  }
+
+  void _updatePersonalBest(int previousScore) {
+    if (personalBestScore > 0 && score <= personalBestScore) {
+      final previousRemaining = personalBestScore - previousScore;
+      final remaining = personalBestScore - score;
+      for (final threshold in GameConfig.approachBestThresholds) {
+        if (remaining <= threshold &&
+            previousRemaining > threshold &&
+            _approachThresholdsFired.add(threshold)) {
+          _feedbackEvents.add(
+            GameFeedbackEvent(
+              GameFeedbackType.approachingBest,
+              remainingToBest: threshold,
+            ),
+          );
+        }
+      }
+    }
+    if (!newPersonalBest && score > personalBestScore) {
+      newPersonalBest = true;
+      _feedbackEvents.add(
+        const GameFeedbackEvent(GameFeedbackType.newPersonalBest),
+      );
+    }
   }
 }

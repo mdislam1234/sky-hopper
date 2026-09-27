@@ -1,6 +1,7 @@
-// Development-only Phase 10 inspector. It is never imported by production
+// Development-only Phase 10/11 inspector. It is never imported by production
 // main.dart, has no auth identity, and creates no backend client or writes.
 import 'dart:math';
+import 'dart:async';
 
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,13 @@ import 'package:sky_hopper/features/game/sky_hopper_game.dart';
 import 'package:sky_hopper/features/game/systems/coin_system.dart';
 import 'package:sky_hopper/features/game/systems/hazard_system.dart';
 import 'package:sky_hopper/features/game/systems/platform_generator.dart';
+import 'package:sky_hopper/features/game/audio/game_audio_service.dart';
+import 'package:sky_hopper/features/game/audio/game_feedback_controller.dart';
+import 'package:sky_hopper/features/game/audio/haptics_service.dart';
+import 'package:sky_hopper/features/game/systems/game_feedback_event.dart';
+import 'package:sky_hopper/features/game/systems/game_state.dart';
+import 'package:sky_hopper/features/settings/data/game_settings_store.dart';
+import 'package:sky_hopper/features/settings/settings_controller.dart';
 
 void main() => runApp(
   MaterialApp(
@@ -31,17 +39,38 @@ class _Phase10PreviewState extends State<_Phase10Preview> {
   final game = SkyHopperGame(seed: 1010);
   final focus = FocusNode();
   final pressed = <LogicalKeyboardKey>{};
+  final settings = SettingsController(MemoryGameSettingsStore());
+  late final feedback = GameFeedbackController(
+    settings: settings,
+    audio: FlameGameAudioService(),
+    haptics: const SystemHapticsService(),
+  );
   int selectedScore = 0;
+  String previewFeedback = 'READY';
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_initializeFeedback());
+  }
+
+  Future<void> _initializeFeedback() async {
+    await settings.load();
+    await feedback.start();
+  }
 
   @override
   void dispose() {
     game.pauseEngine();
     game.disposeStatus();
+    unawaited(feedback.dispose());
+    settings.dispose();
     focus.dispose();
     super.dispose();
   }
 
   void loadStage(int score) {
+    feedback.userGesture();
     selectedScore = score;
     final state = game.state..reset();
     state.progress.observe(score * GameConfig.scoreScale);
@@ -109,8 +138,55 @@ class _Phase10PreviewState extends State<_Phase10Preview> {
       );
     }
     game.resumeRun();
+    feedback.handle([
+      GameFeedbackEvent(
+        GameFeedbackType.biomeChanged,
+        biome: state.environment.biome,
+      ),
+    ]);
     focus.requestFocus();
     setState(() {});
+  }
+
+  void trigger(GameFeedbackEvent event, String label) {
+    feedback.userGesture();
+    feedback.handle([event]);
+    setState(() => previewFeedback = label);
+    focus.requestFocus();
+  }
+
+  Future<void> setMusic(bool enabled) async {
+    feedback.userGesture();
+    await settings.setMusicEnabled(enabled);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> setSound(bool enabled) async {
+    feedback.userGesture();
+    await settings.setSoundEnabled(enabled);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> togglePause() async {
+    feedback.userGesture();
+    if (game.state.phase == RunPhase.paused) {
+      game.resumeRun();
+      await feedback.resume();
+      previewFeedback = 'RESUMED';
+    } else {
+      game.pauseRun();
+      await feedback.pause();
+      previewFeedback = 'PAUSED';
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> restartPreview() async {
+    feedback.userGesture();
+    await feedback.restart();
+    loadStage(selectedScore);
+    previewFeedback = 'RESTARTED';
+    if (mounted) setState(() {});
   }
 
   KeyEventResult onKey(FocusNode node, KeyEvent event) {
@@ -160,17 +236,106 @@ class _Phase10PreviewState extends State<_Phase10Preview> {
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.fromLTRB(8, 8, 72, 8),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      for (final stage in const [0, 400, 800, 1100, 1400, 1900])
-                        Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: ChoiceChip(
-                            label: Text('$stage'),
-                            selected: selectedScore == stage,
-                            onSelected: (_) => loadStage(stage),
+                      Row(
+                        children: [
+                          for (final stage in const [
+                            0,
+                            400,
+                            800,
+                            1100,
+                            1400,
+                            1900,
+                          ])
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChip(
+                                label: Text('$stage'),
+                                selected: selectedScore == stage,
+                                onSelected: (_) => loadStage(stage),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          ActionChip(
+                            label: const Text('PERFECT ×3'),
+                            onPressed: () => trigger(
+                              const GameFeedbackEvent(
+                                GameFeedbackType.perfectLanding,
+                                streak: 3,
+                              ),
+                              'PERFECT ×3',
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 6),
+                          ActionChip(
+                            label: const Text('NEAR MISS'),
+                            onPressed: () => trigger(
+                              const GameFeedbackEvent(
+                                GameFeedbackType.nearMiss,
+                              ),
+                              'CLOSE!',
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          ActionChip(
+                            label: const Text('NEW BEST'),
+                            onPressed: () => trigger(
+                              const GameFeedbackEvent(
+                                GameFeedbackType.newPersonalBest,
+                              ),
+                              'NEW BEST!',
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          ActionChip(
+                            label: const Text('GAME OVER'),
+                            onPressed: () => trigger(
+                              const GameFeedbackEvent(
+                                GameFeedbackType.gameOver,
+                              ),
+                              'GAME OVER',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          FilterChip(
+                            label: const Text('MUSIC'),
+                            selected: settings.value.musicEnabled,
+                            onSelected: (enabled) =>
+                                unawaited(setMusic(enabled)),
+                          ),
+                          const SizedBox(width: 6),
+                          FilterChip(
+                            label: const Text('SFX'),
+                            selected: settings.value.soundEnabled,
+                            onSelected: (enabled) =>
+                                unawaited(setSound(enabled)),
+                          ),
+                          const SizedBox(width: 6),
+                          ActionChip(
+                            label: Text(
+                              game.state.phase == RunPhase.paused
+                                  ? 'RESUME'
+                                  : 'PAUSE',
+                            ),
+                            onPressed: () => unawaited(togglePause()),
+                          ),
+                          const SizedBox(width: 6),
+                          ActionChip(
+                            label: const Text('RESTART'),
+                            onPressed: () => unawaited(restartPreview()),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -195,6 +360,7 @@ class _Phase10PreviewState extends State<_Phase10Preview> {
                         ),
                         child: Text(
                           '${game.state.environment.biome.label}  •  '
+                          '$previewFeedback  •  '
                           '${status.phase.name.toUpperCase()}  •  '
                           'A/D or ←/→',
                           style: const TextStyle(color: Colors.white),

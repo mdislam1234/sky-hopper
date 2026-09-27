@@ -14,6 +14,11 @@ import '../systems/environment_system.dart';
 import '../models/game_result.dart';
 import 'game_hud.dart';
 import '../../skins/models/skin.dart';
+import '../../settings/data/game_settings_store.dart';
+import '../../settings/settings_controller.dart';
+import '../audio/game_audio_service.dart';
+import '../audio/game_feedback_controller.dart';
+import '../audio/haptics_service.dart';
 import 'game_over_overlay.dart';
 
 class GameScreen extends StatefulWidget {
@@ -22,12 +27,16 @@ class GameScreen extends StatefulWidget {
     this.submitGameResult,
     this.preview = false,
     this.appearance = SkinAppearance.defaultSkin,
+    this.personalBestScore = 0,
+    this.feedbackFactory,
     super.key,
   });
   final VoidCallback onHome;
   final SubmitGameResult? submitGameResult;
   final bool preview;
   final SkinAppearance appearance;
+  final int personalBestScore;
+  final GameFeedbackFactory? feedbackFactory;
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
@@ -35,23 +44,36 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   late SkyHopperGame _game;
   late RunSaveController _save;
+  late final GameFeedbackController _feedback;
   final _focus = FocusNode();
   final Set<LogicalKeyboardKey> _keys = {};
   final Map<int, int> _pointers = {};
   @override
   void initState() {
     super.initState();
+    _feedback =
+        widget.feedbackFactory?.call() ??
+        GameFeedbackController(
+          settings: SettingsController(MemoryGameSettingsStore()),
+          audio: const SilentGameAudioService(),
+          haptics: const SilentHapticsService(),
+        );
     _game = SkyHopperGame(
       seed: Random().nextInt(1 << 30),
       appearance: widget.appearance,
+      personalBestScore: widget.personalBestScore,
     );
     _save = RunSaveController(
       submit: widget.submitGameResult,
       preview: widget.preview,
     );
     _game.status.addListener(_onRunChanged);
+    _game.feedbackEvents.addListener(_onFeedback);
     WidgetsBinding.instance.addObserver(this);
+    unawaited(_feedback.start());
   }
+
+  void _onFeedback() => _feedback.handle(_game.feedbackEvents.value);
 
   void _onRunChanged() {
     if (_game.state.phase == RunPhase.gameOver) {
@@ -80,6 +102,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   void _pause() {
     _clearInput();
     _game.pauseRun();
+    unawaited(_feedback.pause());
   }
 
   @override
@@ -114,6 +137,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       return KeyEventResult.handled;
     }
     if (!movement.contains(event.logicalKey)) return KeyEventResult.ignored;
+    if (event is KeyDownEvent) _feedback.userGesture();
     if (event is KeyUpEvent) {
       _keys.remove(event.logicalKey);
     } else {
@@ -124,18 +148,22 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   void _continue() {
+    _feedback.uiTap();
     _clearInput();
     if (_game.state.phase == RunPhase.paused) {
       _game.resumeRun();
+      unawaited(_feedback.resume());
     } else {
       final previous = _game;
       previous.status.removeListener(_onRunChanged);
+      previous.feedbackEvents.removeListener(_onFeedback);
       final previousSave = _save;
       previous.pauseEngine();
       setState(() {
         _game = SkyHopperGame(
           seed: Random().nextInt(1 << 30),
           appearance: widget.appearance,
+          personalBestScore: widget.personalBestScore,
         );
         _game.visualMotion = !MediaQuery.disableAnimationsOf(context);
         _save = RunSaveController(
@@ -143,7 +171,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           preview: widget.preview,
         );
         _game.status.addListener(_onRunChanged);
+        _game.feedbackEvents.addListener(_onFeedback);
       });
+      unawaited(_feedback.restart());
       WidgetsBinding.instance.addPostFrameCallback((_) {
         previous.disposeStatus();
         previousSave.dispose();
@@ -153,7 +183,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   void _home() {
+    _feedback.uiTap();
     _pause();
+    unawaited(_feedback.leaveGame());
     widget.onHome();
   }
 
@@ -162,8 +194,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _game.pauseEngine();
     _game.status.removeListener(_onRunChanged);
+    _game.feedbackEvents.removeListener(_onFeedback);
     _save.dispose();
     _game.disposeStatus();
+    unawaited(_feedback.dispose());
     _focus.dispose();
     super.dispose();
   }
@@ -173,6 +207,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     label: direction < 0 ? 'Hold to move left' : 'Hold to move right',
     child: Listener(
       onPointerDown: (event) {
+        _feedback.userGesture();
         _focus.requestFocus();
         _pointers[event.pointer] = direction;
         _updateInput();
@@ -231,6 +266,29 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     ),
   );
 
+  Widget _feedbackNotice(String message) => IgnorePointer(
+    child: Align(
+      alignment: const Alignment(0, -0.42),
+      child: Semantics(
+        liveRegion: true,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.deepBlue.withValues(alpha: 0.78),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w900),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: AppColors.paleSky,
@@ -263,12 +321,19 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                           alignment: Alignment.topCenter,
                           child: GameHud(
                             score: value.score,
+                            bestScore: value.bestScore,
                             coins: value.coins,
-                            onPause: _pause,
+                            animateFeedback: _game.visualMotion,
+                            onPause: () {
+                              _feedback.uiTap();
+                              _pause();
+                            },
                           ),
                         ),
                         if (value.biomeNotice case final biome?)
                           _biomeNotice(biome),
+                        if (value.feedbackNotice case final message?)
+                          _feedbackNotice(message),
                         if (value.phase == RunPhase.playing)
                           Positioned(
                             left: 16,
@@ -287,6 +352,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                               coins: value.coins,
                               paused: value.phase == RunPhase.paused,
                               causeMessage: _causeMessage(value.cause),
+                              newPersonalBest: value.newPersonalBest,
+                              previousBest: widget.personalBestScore,
                               savePhase: _save.phase,
                               onRetry: _save.retry,
                               onContinue: _continue,

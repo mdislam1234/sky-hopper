@@ -19,6 +19,13 @@ class WorldRect {
       right > other.left &&
       top < other.bottom &&
       bottom > other.top;
+
+  WorldRect inflate(double margin) => WorldRect(
+    left - margin,
+    top - margin,
+    width + margin * 2,
+    height + margin * 2,
+  );
 }
 
 class WindZoneData {
@@ -63,10 +70,15 @@ class StormCloudData {
   final double speed;
   int direction = 1;
   double collisionCooldown = 0;
+  bool nearMissAwarded = false;
   WorldRect get bounds => WorldRect(x, y, width, height);
 
   void advance(double dt) {
     collisionCooldown = max(0, collisionCooldown - dt);
+    if (maxX <= minX) {
+      x = minX;
+      return;
+    }
     x += direction * speed * dt;
     while (x < minX || x > maxX) {
       if (x > maxX) {
@@ -98,6 +110,7 @@ class LightningData {
   final bool looping;
   LightningPhase phase = LightningPhase.warning;
   double phaseElapsed = 0;
+  bool nearMissAwarded = false;
   WorldRect get bounds => WorldRect(x, y, width, height);
   bool get isLethal => phase == LightningPhase.strike;
 
@@ -239,6 +252,7 @@ class HazardSystem {
     for (final cloud in stormClouds) {
       if (cloud.collisionCooldown <= 0 && cloud.bounds.overlaps(player)) {
         cloud.collisionCooldown = GameConfig.stormCloudCollisionCooldown;
+        cloud.nearMissAwarded = true;
         final playerCenter = player.left + player.width / 2;
         final cloudCenter = cloud.x + cloud.width / 2;
         final direction = playerCenter < cloudCenter ? -1 : 1;
@@ -251,8 +265,37 @@ class HazardSystem {
     return null;
   }
 
-  bool lightningHits(WorldRect player) =>
-      lightning.any((bolt) => bolt.isLethal && bolt.bounds.overlaps(player));
+  bool lightningHits(WorldRect player) {
+    for (final bolt in lightning) {
+      if (bolt.isLethal && bolt.bounds.overlaps(player)) {
+        bolt.nearMissAwarded = true;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  int collectNearMisses(WorldRect player) {
+    var count = 0;
+    for (final cloud in stormClouds) {
+      if (!cloud.nearMissAwarded &&
+          !cloud.bounds.overlaps(player) &&
+          cloud.bounds.inflate(GameConfig.nearMissMargin).overlaps(player)) {
+        cloud.nearMissAwarded = true;
+        count++;
+      }
+    }
+    for (final bolt in lightning) {
+      if (!bolt.nearMissAwarded &&
+          bolt.phase == LightningPhase.strike &&
+          !bolt.bounds.overlaps(player) &&
+          bolt.bounds.inflate(GameConfig.nearMissMargin).overlaps(player)) {
+        bolt.nearMissAwarded = true;
+        count++;
+      }
+    }
+    return count;
+  }
 
   void cleanup(double cameraTop) {
     final cutoff = cameraTop + GameConfig.height + GameConfig.cleanupBuffer;

@@ -39,7 +39,7 @@
       <h1>SKY HOPPER</h1>
       <p>Jump beyond the clouds</p>
       <p id="startup-status" role="status" aria-live="polite">Getting ready… <span class="loading-dot" aria-hidden="true"></span></p>
-      <button id="startup-retry" type="button" hidden>Reload</button>
+      <button id="startup-retry" type="button" hidden onclick="location.reload()">Reload</button>
       <noscript><p>Enable JavaScript to play Sky Hopper. Online features require an internet connection.</p></noscript>
     </section>
   </div>
@@ -55,7 +55,6 @@
         status.textContent = 'Still loading. Check your internet connection if this takes longer.';
         retry.hidden = false;
       }, 30000);
-      retry.addEventListener('click', () => location.reload());
       window.skyHopperStartup = { fail };
       window.addEventListener('flutter-first-frame', () => {
         clearTimeout(slow);

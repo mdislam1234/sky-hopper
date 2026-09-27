@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/navigation/app_routes.dart';
@@ -14,17 +16,24 @@ import '../leaderboard/leaderboard_screen.dart';
 import '../skins/skins_screen.dart';
 import '../skins/models/skin.dart';
 import '../../core/data/data_exception.dart';
+import '../game/audio/game_feedback_controller.dart';
+import '../settings/settings_controller.dart';
+import '../settings/settings_screen.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({
     required this.controller,
     this.submitGameResult,
     this.loadLeaderboard,
+    required this.settings,
+    this.feedbackFactory,
     super.key,
   });
   final AuthController controller;
   final SubmitGameResult? submitGameResult;
   final LoadLeaderboard? loadLeaderboard;
+  final SettingsController settings;
+  final GameFeedbackFactory? feedbackFactory;
   @override
   State<AuthGate> createState() => _AuthGateState();
 }
@@ -35,6 +44,9 @@ class _AuthGateState extends State<AuthGate> {
   bool _gameOpen = false;
   bool _leaderboardOpen = false;
   bool _skinsOpen = false;
+  bool _settingsOpen = false;
+  bool _openingGame = false;
+  int _runBestScore = 0;
   SkinAppearance _runAppearance = SkinAppearance.defaultSkin;
 
   @override
@@ -52,6 +64,8 @@ class _AuthGateState extends State<AuthGate> {
         _gameOpen = false;
         _leaderboardOpen = false;
         _skinsOpen = false;
+        _settingsOpen = false;
+        _openingGame = false;
       }
     });
   }
@@ -78,12 +92,7 @@ class _AuthGateState extends State<AuthGate> {
       route = AppRoutes.home;
       screen = HomeScreen(
         profile: auth.profile,
-        onPlay: auth.profile == null
-            ? null
-            : () => setState(() {
-                _runAppearance = auth.selectedAppearance;
-                _gameOpen = true;
-              }),
+        onPlay: auth.profile == null ? null : () => unawaited(_openGame(auth)),
         onLeaderboard: auth.profile == null
             ? null
             : () => setState(() => _leaderboardOpen = true),
@@ -93,6 +102,7 @@ class _AuthGateState extends State<AuthGate> {
         onProfile: auth.profile == null
             ? null
             : () => setState(() => _profileOpen = true),
+        onSettings: () => setState(() => _settingsOpen = true),
       );
     } else if (auth.stage == AuthStage.signedOut ||
         auth.stage == AuthStage.unconfigured) {
@@ -155,8 +165,19 @@ class _AuthGateState extends State<AuthGate> {
             name: AppRoutes.game,
             child: GameScreen(
               appearance: _runAppearance,
+              personalBestScore: _runBestScore,
+              feedbackFactory: widget.feedbackFactory,
               onHome: () => setState(() => _gameOpen = false),
               submitGameResult: _saveFor(auth.profile!.id),
+            ),
+          ),
+        if (_splashComplete && auth.stage == AuthStage.ready && _settingsOpen)
+          MaterialPage(
+            key: const ValueKey(AppRoutes.settings),
+            name: AppRoutes.settings,
+            child: SettingsScreen(
+              controller: widget.settings,
+              onBack: () => setState(() => _settingsOpen = false),
             ),
           ),
         if (_splashComplete &&
@@ -211,6 +232,9 @@ class _AuthGateState extends State<AuthGate> {
         if (page.name == AppRoutes.profile && mounted) {
           setState(() => _profileOpen = false);
         }
+        if (page.name == AppRoutes.settings && mounted) {
+          setState(() => _settingsOpen = false);
+        }
       },
     );
   }
@@ -221,4 +245,32 @@ class _AuthGateState extends State<AuthGate> {
         result,
         widget.submitGameResult,
       );
+
+  Future<void> _openGame(AuthController auth) async {
+    if (_openingGame || auth.profile == null) return;
+    setState(() => _openingGame = true);
+    var bestScore = 0;
+    try {
+      final entries = await widget.loadLeaderboard?.call();
+      if (entries != null) {
+        for (final entry in entries) {
+          if (entry.isCurrentUser) {
+            bestScore = entry.bestScore;
+            break;
+          }
+        }
+      }
+    } catch (_) {
+      // A run remains playable when the one-time best-score lookup is offline.
+    }
+    if (!mounted || auth.stage != AuthStage.ready || auth.profile == null) {
+      return;
+    }
+    setState(() {
+      _openingGame = false;
+      _runBestScore = bestScore;
+      _runAppearance = auth.selectedAppearance;
+      _gameOpen = true;
+    });
+  }
 }

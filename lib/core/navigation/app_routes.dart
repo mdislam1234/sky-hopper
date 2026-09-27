@@ -7,4 +7,5 @@ abstract final class AppRoutes {
   static const game = '/game';
   static const leaderboard = '/leaderboard';
   static const skins = '/skins';
+  static const settings = '/settings';
 }

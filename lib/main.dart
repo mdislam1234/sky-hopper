@@ -9,6 +9,11 @@ import 'features/game/data/game_score_repository.dart';
 import 'features/skins/data/skin_repository.dart';
 import 'features/leaderboard/data/leaderboard_repository.dart';
 import 'core/widgets/app_startup.dart';
+import 'features/game/audio/game_audio_service.dart';
+import 'features/game/audio/game_feedback_controller.dart';
+import 'features/game/audio/haptics_service.dart';
+import 'features/settings/data/game_settings_store.dart';
+import 'features/settings/settings_controller.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +21,8 @@ void main() {
 }
 
 Future<Widget> _initializeApp() async {
+  final settings = SettingsController(SharedPreferencesGameSettingsStore());
+  await settings.load();
   final client = await initializeSupabase();
   final auth = client == null
       ? null
@@ -32,5 +39,11 @@ Future<Widget> _initializeApp() async {
     submitGameResult: client == null
         ? null
         : GameScoreRepository(client).submitGameResult,
+    settingsController: settings,
+    feedbackFactory: () => GameFeedbackController(
+      settings: settings,
+      audio: FlameGameAudioService(),
+      haptics: const SystemHapticsService(),
+    ),
   );
 }

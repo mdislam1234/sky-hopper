@@ -46,7 +46,8 @@ class CoinSystem {
     }
   }
 
-  void collectAt(double x, double y) {
+  int collectAt(double x, double y) {
+    var collectedNow = 0;
     final r = GameConfig.coinRadius;
     for (final coin in coins) {
       if (coin.collected) continue;
@@ -57,9 +58,11 @@ class CoinSystem {
       if (dx * dx + dy * dy <= r * r) {
         coin.collected = true;
         collected++;
+        collectedNow++;
       }
     }
     coins.removeWhere((coin) => coin.collected);
+    return collectedNow;
   }
 
   void cleanup(double cameraTop) => coins.removeWhere(

@@ -9,8 +9,10 @@ environment:
 dependencies:
   cupertino_icons: ^1.0.9
   flame: ^1.38.2
+  flame_audio: ^2.12.2
   flutter:
     sdk: flutter
+  shared_preferences: ^2.5.5
   supabase_flutter: ^2.17.2
 
 dev_dependencies:
@@ -20,4 +22,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/audio/
 
