@@ -26,10 +26,10 @@ This inventory separates behavior confirmed in the repository from decisions and
 - [ ] Confirm Supabase, Google, Vercel, and Google Play encryption, retention, and deletion behavior before answering console questions.
 - [ ] Provide a real support contact and a working account/data-deletion request mechanism; update the privacy page and store listing with both.
 - [ ] Host the privacy page at a stable public HTTPS URL and enter that exact URL in Play Console.
-- [ ] After AdMob supplies the real publisher ID, publish a real `/app-ads.txt` at the root of the developer website. Use `docs/app-ads.txt.example` only as a template, and link the same developer website from the Play listing.
-- [ ] Create/configure the real AdMob Android app and rewarded/interstitial units. Never submit with Google's sample IDs.
+- [ ] Copy `docs/app-ads.txt.example` to ignored `web/app-ads.txt`, replace `<PUBLISHER_ID>` with the real publisher ID, then intentionally publish that real file at the developer website root and link the same website from the Play listing.
+- [ ] Fill ignored `android/admob_config.local.json` with the real Android app, rewarded unit, and interstitial unit IDs. Never submit with Google's sample IDs.
 - [ ] Create and securely back up the Play upload keystore. Populate private `android/key.properties`; never commit or share it.
-- [ ] Populate private `android/release.properties` with the production AdMob app ID and provide production ad-unit Dart defines.
+- [ ] Pass both ignored configuration files to the release build: `dart_defines.local.json` for Supabase and `android/admob_config.local.json` for AdMob.
 - [ ] Confirm production Supabase URL/publishable key and OAuth Android redirect configuration. Never use a service-role key in the app.
 - [ ] Prepare Play app-access instructions and a durable reviewer test account/process because gameplay requires login.
 - [ ] Supply final store title, short/full descriptions, screenshots, feature graphic, icon, category, support email/site, and countries/regions.

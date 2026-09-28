@@ -10,6 +10,8 @@ class AdConfiguration {
   static const androidTestRewardedId = 'ca-app-pub-3940256099942544/5224354917';
   static const androidTestInterstitialId =
       'ca-app-pub-3940256099942544/1033173712';
+  static const _googleSamplePublisherId = '3940256099942544';
+  static final _adUnitPattern = RegExp(r'^ca-app-pub-([0-9]{16})/[0-9]{10}$');
 
   final String rewardedAdUnitId;
   final String interstitialAdUnitId;
@@ -22,19 +24,27 @@ class AdConfiguration {
     const configuredInterstitial = String.fromEnvironment(
       'ADMOB_INTERSTITIAL_AD_UNIT_ID',
     );
-    final rewarded = kDebugMode ? androidTestRewardedId : configuredRewarded;
-    final interstitial = kDebugMode
+    final useTestIds = !kReleaseMode;
+    final rewarded = useTestIds ? androidTestRewardedId : configuredRewarded;
+    final interstitial = useTestIds
         ? androidTestInterstitialId
         : configuredInterstitial;
-    final hasIds = rewarded.isNotEmpty && interstitial.isNotEmpty;
-    final releaseUsesTestIds =
-        !kDebugMode &&
-        (rewarded == androidTestRewardedId ||
-            interstitial == androidTestInterstitialId);
     return AdConfiguration(
       rewardedAdUnitId: rewarded,
       interstitialAdUnitId: interstitial,
-      enabled: hasIds && !releaseUsesTestIds,
+      enabled:
+          useTestIds ||
+          (isProductionAdUnitId(rewarded) &&
+              isProductionAdUnitId(interstitial) &&
+              publisherIdFor(rewarded) == publisherIdFor(interstitial)),
     );
   }
+
+  static bool isProductionAdUnitId(String value) {
+    final match = _adUnitPattern.firstMatch(value);
+    return match != null && match.group(1) != _googleSamplePublisherId;
+  }
+
+  static String? publisherIdFor(String value) =>
+      _adUnitPattern.firstMatch(value)?.group(1);
 }

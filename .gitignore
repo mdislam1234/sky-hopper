@@ -60,6 +60,8 @@ supabase/.temp/
 **/local.properties
 **/key.properties
 **/release.properties
+/android/admob_config.local.json
+/web/app-ads.txt
 *.jks
 *.keystore
 *.p12

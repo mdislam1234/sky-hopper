@@ -711,7 +711,7 @@ Phase 13A prepares restrained Android monetization, privacy controls, and Androi
 
 `google_mobile_ads` 9.1.0 is isolated behind `AdService`. Android creates `GoogleMobileAdsService`; Web and non-Android platforms resolve a no-op implementation through conditional imports; tests inject deterministic fakes. Startup asks Google's User Messaging Platform to update consent information, loads and displays Google's form when required, and starts ad loading only when `canRequestAds()` allows it. Cached permission may safely allow initialization while a refresh is in flight. SDK and ad initialization are guarded against duplicate calls.
 
-Development and debug builds use only Google's official Android sample identifiers. Release Dart code has no test-ID fallback: supply `ADMOB_REWARDED_AD_UNIT_ID` and `ADMOB_INTERSTITIAL_AD_UNIT_ID` as compile-time Dart defines. A release build also requires a production `ADMOB_APP_ID` in the ignored `android/release.properties`; Gradle rejects the Google sample app ID. No real AdMob ID or publisher ID is committed.
+Development, debug, test, and profile builds always use Google's official Android sample identifiers, even if production defines are present. Release code has no test-ID fallback. The three production identifiers live together in ignored `android/admob_config.local.json` and are passed with `--dart-define-from-file`; Gradle decodes the same values to configure the Android manifest. No real AdMob ID or publisher ID is committed.
 
 At a successfully saved **normal-mode** Game Over, a player who collected coins may voluntarily watch one rewarded ad. The displayed estimate and server rule are `ceil(run coins / 2)`, bounded to 1–25 coins. Dismissal before Google's earned callback grants nothing. After the callback, Flutter sends only the immutable saved run UUID to `claim_rewarded_run_bonus`; the database derives `auth.uid()`, verifies ownership and normal mode, reads `coins_collected`, calculates the bonus, locks the profile, and records one idempotent claim per run. A failed confirmation can be retried without watching a second ad. The mobile earned callback is not cryptographic proof of viewing; AdMob Server-Side Verification is not implemented, so this design does not claim full anti-cheat security.
 
@@ -721,16 +721,24 @@ Interstitials are considered only after Game Over when Restart or Home is chosen
 
 Settings shows Google's **Privacy Options** only when UMP reports that an entry point is required. There is no homemade consent dialog, fake disable-ads switch, or promise that every advertisement can be disabled. The Web privacy draft is at `/privacy/` (`web/privacy/index.html`) and preserves the Flutter app at `/`. It covers Google sign-in, Supabase profile/gameplay/progression records, advertising data, consent choices, retention, deletion requests, and age considerations without claiming legal compliance.
 
-`docs/app-ads.txt.example` is documentation only and deliberately contains a placeholder. Do not copy it to `web/app-ads.txt` until AdMob supplies the real publisher ID. The final file must be at the root of the developer website, and that same website must be listed in Google Play.
+`docs/app-ads.txt.example` is documentation only and deliberately contains a placeholder. The real publisher ID belongs locally in ignored `web/app-ads.txt` after copying the template. That file must later be intentionally published at the root of the developer website, and the same website must be listed in Google Play.
 
 ### Android release setup
 
 The Android application ID remains `com.skyhopper.game`. `compileSdk` and `targetSdk` are 36; the current Flutter toolchain resolves `flutter.minSdkVersion` to API 24, which is compatible with this Google Mobile Ads configuration. Debug builds use the official sample AdMob app ID. Release tasks fail clearly unless both private files are configured:
 
-1. Copy `android/key.properties.example` to ignored `android/key.properties`, point it at the private Play upload keystore, and fill the passwords locally.
-2. Copy `android/release.properties.example` to ignored `android/release.properties` and supply the real AdMob Android app ID.
-3. Supply production public Supabase values plus production rewarded/interstitial unit IDs through an ignored Dart-defines file.
-4. Run `flutter build appbundle --release --dart-define-from-file=<private-file>`.
+1. Fill the existing ignored `android/admob_config.local.json` using `android/admob_config.local.json.example` as the shape. Enter `ADMOB_ANDROID_APP_ID`, `ADMOB_REWARDED_AD_UNIT_ID`, and `ADMOB_INTERSTITIAL_AD_UNIT_ID`; never pass the publisher ID here.
+2. Copy `android/key.properties.example` to ignored `android/key.properties`, point it at the private Play upload keystore, and fill the passwords locally.
+3. Keep production public Supabase values in the existing ignored `dart_defines.local.json`.
+4. Run:
+
+```powershell
+flutter build appbundle --release `
+  --dart-define-from-file=dart_defines.local.json `
+  --dart-define-from-file=android/admob_config.local.json
+```
+
+Release Gradle configuration fails before assembly when any AdMob value is missing, malformed, uses Google's sample publisher ID, or mixes publisher IDs. It then requires private release signing. Error output names invalid fields or categories without printing their values.
 
 No keystore, password, production ad ID, service-role key, or private key belongs in Git. Missing release credentials never fall back to debug signing. An upload-ready AAB remains pending until the developer creates the Play upload key and supplies real public runtime/AdMob configuration.
 
@@ -749,3 +757,16 @@ The Play Console and physical-device workflow is tracked in `PLAY_STORE_CHECKLIS
 - Existing Phase 3, 6, 7, and 12 migration files are unchanged. Their MD5 values remain `2481c9a35392126533828fe88e2f0343`, `76966a13023ff70d041d3a2bd32060d3`, `4f4a11cf557108c2372cae9306c2217e`, and `4fc9a94dd5381cb3a5c558f8441caa6a`.
 - The source/config scan found no real credential, private key, keystore, signing file, production AdMob value, or privileged Supabase key. Matches were documentation and synthetic validation-test strings. Ignored private Dart defines were used without printing their contents.
 - **Physical Android consent/ad/audio verification: pending.** The APK and manifest are verified, but no connected physical phone was available to observe Google's `Test Ad` presentation, region-specific UMP form, or audible restoration.
+
+### Phase 13B production AdMob configuration
+
+Phase 13B adds the release-only production configuration bridge without changing the Phase 13A ad lifecycle, frequency, reward, consent, or Supabase behavior.
+
+- Local production IDs: `android/admob_config.local.json` (ignored and created with empty values in this workspace).
+- Tracked shape only: `android/admob_config.local.json.example`.
+- AdMob Android App ID key: `ADMOB_ANDROID_APP_ID`.
+- Rewarded unit key: `ADMOB_REWARDED_AD_UNIT_ID`.
+- Interstitial unit key: `ADMOB_INTERSTITIAL_AD_UNIT_ID`.
+- Publisher ID: edit the prepared ignored `web/app-ads.txt` and replace only `<PUBLISHER_ID>`; in a fresh checkout, first copy `docs/app-ads.txt.example` there.
+
+Android release builds require all three production IDs and validate exact ID shape, a shared publisher component, and exclusion of Google's sample publisher. Android debug/profile builds continue to force official test IDs. Flutter Web neither imports the mobile service nor requires the local AdMob file. The publisher ID is intentionally separate because it belongs in a public authorized-sellers file, not the app binary or Android manifest.

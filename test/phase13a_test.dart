@@ -267,7 +267,7 @@ void main() {
         expect(manifest, contains(r'android:value="${adMobAppId}"'));
         expect(gradle, contains('compileSdk = 36'));
         expect(gradle, contains('targetSdk = 36'));
-        expect(gradle, contains('releaseAdMobAppId == testAdMobAppId'));
+        expect(gradle, contains('googleSamplePublisherId in publisherIds'));
         expect(gradle, isNot(contains('signingConfigs.getByName("debug")')));
       },
     );
@@ -278,7 +278,10 @@ void main() {
       expect(privacy, contains('Sky Hopper Privacy Policy'));
       expect(privacy, contains('Google Mobile Ads'));
       expect(template, contains('<PUBLISHER_ID>'));
-      expect(File('web/app-ads.txt').existsSync(), isFalse);
+      expect(
+        File('.gitignore').readAsStringSync(),
+        contains('/web/app-ads.txt'),
+      );
     });
   });
 }
