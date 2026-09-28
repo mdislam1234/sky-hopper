@@ -27,17 +27,20 @@ class Skin {
     this.description,
     required this.cost,
     required this.appearance,
+    this.unlockAchievementId,
   });
   final String id;
   final String name;
   final String? description;
   final int cost;
   final SkinAppearance appearance;
+  final String? unlockAchievementId;
   factory Skin.fromJson(Map<String, dynamic> json) => Skin(
     id: JsonFields.text(json, 'id'),
     name: JsonFields.text(json, 'name'),
     description: JsonFields.optionalText(json, 'description'),
     cost: JsonFields.nonNegativeInt(json, 'cost'),
+    unlockAchievementId: JsonFields.optionalText(json, 'unlock_achievement_id'),
     appearance: SkinAppearance(
       SkinAppearance.parseColor(
         json['primary_color'],

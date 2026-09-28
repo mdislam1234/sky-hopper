@@ -23,6 +23,11 @@ class RunSaveController extends ChangeNotifier {
     required int score,
     required double maximumHeight,
     required int coinsCollected,
+    int perfectLandings = 0,
+    int bestPerfectStreak = 0,
+    int nearMisses = 0,
+    int movingPlatformLandings = 0,
+    int highestBiome = 0,
   }) async {
     if (_result != null || _disposed) return;
     _result = GameResult(
@@ -30,6 +35,11 @@ class RunSaveController extends ChangeNotifier {
       score: score,
       height: maximumHeight.floor(),
       coinsCollected: coinsCollected,
+      perfectLandings: perfectLandings,
+      bestPerfectStreak: bestPerfectStreak,
+      nearMisses: nearMisses,
+      movingPlatformLandings: movingPlatformLandings,
+      highestBiome: highestBiome,
     );
     if (preview) {
       phase = SavePhase.preview;

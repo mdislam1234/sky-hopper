@@ -8,4 +8,7 @@ abstract final class AppRoutes {
   static const leaderboard = '/leaderboard';
   static const skins = '/skins';
   static const settings = '/settings';
+  static const dailyChallenge = '/daily-challenge';
+  static const dailyMissions = '/daily-missions';
+  static const achievements = '/achievements';
 }

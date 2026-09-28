@@ -5,9 +5,9 @@ import 'core/data/supabase_bootstrap.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/services/auth_service.dart';
 import 'features/profile/data/profile_repository.dart';
-import 'features/game/data/game_score_repository.dart';
 import 'features/skins/data/skin_repository.dart';
 import 'features/leaderboard/data/leaderboard_repository.dart';
+import 'features/progression/data/progression_repository.dart';
 import 'core/widgets/app_startup.dart';
 import 'features/game/audio/game_audio_service.dart';
 import 'features/game/audio/game_feedback_controller.dart';
@@ -31,14 +31,14 @@ Future<Widget> _initializeApp() async {
           loadProfile: ProfileRepository(client).fetchCurrent,
           skinStore: SkinRepository(client),
         );
+  final progression = client == null ? null : ProgressionRepository(client);
   return SkyHopperApp(
     authController: auth,
     loadLeaderboard: client == null
         ? null
         : () => LeaderboardRepository(client).fetchLeaderboard(),
-    submitGameResult: client == null
-        ? null
-        : GameScoreRepository(client).submitGameResult,
+    submitGameResult: progression?.submitGameResult,
+    progressionRepository: progression,
     settingsController: settings,
     feedbackFactory: () => GameFeedbackController(
       settings: settings,

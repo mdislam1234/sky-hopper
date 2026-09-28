@@ -96,17 +96,6 @@ class GameOverOverlay extends StatelessWidget {
                       onPressed: onRetry,
                       child: const Text('RETRY SAVE'),
                     ),
-                  if (savePhase == SavePhase.saving ||
-                      savePhase == SavePhase.failed)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        savePhase == SavePhase.saving
-                            ? 'You can leave; this save may finish in the background.'
-                            : 'Retry before leaving. Unsaved runs are not kept for later retry.',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
                 ],
                 const SizedBox(height: 16),
                 FilledButton.icon(
@@ -120,6 +109,18 @@ class GameOverOverlay extends StatelessWidget {
                   icon: const Icon(Icons.home_outlined),
                   label: const Text('HOME'),
                 ),
+                if (!paused &&
+                    (savePhase == SavePhase.saving ||
+                        savePhase == SavePhase.failed))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      savePhase == SavePhase.saving
+                          ? 'You can leave; this save may finish in the background.'
+                          : 'Retry before leaving. Unsaved runs are not kept for later retry.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
               ],
             ),
           ),

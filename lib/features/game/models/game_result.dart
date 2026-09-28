@@ -9,11 +9,21 @@ class GameResult {
     required this.score,
     required this.height,
     required this.coinsCollected,
+    this.perfectLandings = 0,
+    this.bestPerfectStreak = 0,
+    this.nearMisses = 0,
+    this.movingPlatformLandings = 0,
+    this.highestBiome = 0,
   });
   final String runId;
   final int score;
   final int height;
   final int coinsCollected;
+  final int perfectLandings;
+  final int bestPerfectStreak;
+  final int nearMisses;
+  final int movingPlatformLandings;
+  final int highestBiome;
 
   static String newRunId() {
     final random = Random.secure();
@@ -28,7 +38,17 @@ class GameResult {
     if (!RegExp(
           r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
         ).hasMatch(runId) ||
-        [score, height, coinsCollected].any((n) => n < 0 || n > 2147483647)) {
+        [score, height, coinsCollected].any((n) => n < 0 || n > 2147483647) ||
+        perfectLandings < 0 ||
+        perfectLandings > 10000 ||
+        bestPerfectStreak < 0 ||
+        bestPerfectStreak > 10 ||
+        nearMisses < 0 ||
+        nearMisses > 10000 ||
+        movingPlatformLandings < 0 ||
+        movingPlatformLandings > 10000 ||
+        highestBiome < 0 ||
+        highestBiome > 4) {
       throw const FormatException('Invalid game result.');
     }
   }
@@ -42,6 +62,15 @@ class GameResult {
       'p_coins_collected': coinsCollected,
     };
   }
+
+  Map<String, dynamic> toProgressionRpcParams() => {
+    ...toRpcParams(),
+    'p_perfect_landings': perfectLandings,
+    'p_best_perfect_streak': bestPerfectStreak,
+    'p_near_misses': nearMisses,
+    'p_moving_landings': movingPlatformLandings,
+    'p_highest_biome': highestBiome,
+  };
 }
 
 class SavedGameResult {

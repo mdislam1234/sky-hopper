@@ -3,15 +3,18 @@ import 'package:flutter/material.dart';
 import '../../core/widgets/sky_page.dart';
 import 'data/leaderboard_repository.dart';
 import 'models/leaderboard_entry.dart';
+import '../progression/data/progression_repository.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({
     required this.load,
     required this.onBack,
+    this.loadPeriod,
     super.key,
   });
   final LoadLeaderboard load;
   final VoidCallback onBack;
+  final LoadCompetitionLeaderboard? loadPeriod;
   @override
   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
 }
@@ -20,6 +23,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   bool _loading = true;
   String? _error;
   List<LeaderboardEntry> _entries = const [];
+  LeaderboardPeriod _period = LeaderboardPeriod.allTime;
   @override
   void initState() {
     super.initState();
@@ -32,7 +36,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       _error = null;
     });
     try {
-      final rows = await widget.load().timeout(const Duration(seconds: 15));
+      final rows = await (widget.loadPeriod?.call(_period) ?? widget.load())
+          .timeout(const Duration(seconds: 15));
       if (mounted) setState(() => _entries = rows);
     } catch (_) {
       if (mounted) {
@@ -72,6 +77,32 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           ],
         ),
         const SizedBox(height: 20),
+        if (widget.loadPeriod != null) ...[
+          SegmentedButton<LeaderboardPeriod>(
+            segments: const [
+              ButtonSegment(
+                value: LeaderboardPeriod.daily,
+                label: Text('DAILY'),
+              ),
+              ButtonSegment(
+                value: LeaderboardPeriod.weekly,
+                label: Text('WEEKLY'),
+              ),
+              ButtonSegment(
+                value: LeaderboardPeriod.allTime,
+                label: Text('ALL TIME'),
+              ),
+            ],
+            selected: {_period},
+            onSelectionChanged: _loading
+                ? null
+                : (selection) {
+                    setState(() => _period = selection.single);
+                    _load();
+                  },
+          ),
+          const SizedBox(height: 20),
+        ],
         if (_loading)
           const Center(
             child: CircularProgressIndicator(

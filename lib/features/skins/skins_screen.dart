@@ -145,7 +145,13 @@ class _SkinsScreenState extends State<SkinsScreen> {
                 ),
               ],
             ),
-            Text(owned ? 'OWNED' : '${skin.cost} coins'),
+            Text(
+              owned
+                  ? 'OWNED'
+                  : skin.unlockAchievementId != null
+                  ? 'ACHIEVEMENT · ${skin.unlockAchievementId!.replaceAll('_', ' ').toUpperCase()}'
+                  : '${skin.cost} coins',
+            ),
             const SizedBox(height: 8),
             FilledButton(
               key: ValueKey('action-${skin.id}'),
@@ -161,11 +167,15 @@ class _SkinsScreenState extends State<SkinsScreen> {
                     ? 'SELECTED'
                     : owned
                     ? 'SELECT'
+                    : skin.unlockAchievementId != null
+                    ? 'EARN IN ACHIEVEMENTS'
                     : 'UNLOCK — ${skin.cost} COINS',
                 textAlign: TextAlign.center,
               ),
             ),
-            if (!owned && _store.coins < skin.cost)
+            if (!owned &&
+                skin.unlockAchievementId == null &&
+                _store.coins < skin.cost)
               const Text('Not enough coins.', textAlign: TextAlign.center),
             if (_store.busy)
               const Text(

@@ -19,7 +19,11 @@ class SkinsController extends ChangeNotifier {
   int get coins => auth.profile?.totalCoins ?? 0;
   String? get selected => auth.profile?.selectedSkin;
   bool canUnlock(Skin skin) =>
-      !loading && !busy && !owned.contains(skin.id) && coins >= skin.cost;
+      !loading &&
+      !busy &&
+      !owned.contains(skin.id) &&
+      skin.unlockAchievementId == null &&
+      coins >= skin.cost;
   void _notify() {
     if (!_disposed) notifyListeners();
   }

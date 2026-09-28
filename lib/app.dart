@@ -8,6 +8,7 @@ import 'features/leaderboard/data/leaderboard_repository.dart';
 import 'features/game/audio/game_feedback_controller.dart';
 import 'features/settings/data/game_settings_store.dart';
 import 'features/settings/settings_controller.dart';
+import 'features/progression/data/progression_repository.dart';
 
 class SkyHopperApp extends StatefulWidget {
   const SkyHopperApp({
@@ -17,6 +18,7 @@ class SkyHopperApp extends StatefulWidget {
     this.loadLeaderboard,
     this.settingsController,
     this.feedbackFactory,
+    this.progressionRepository,
     super.key,
   });
   final AuthController? authController;
@@ -25,6 +27,7 @@ class SkyHopperApp extends StatefulWidget {
   final LoadLeaderboard? loadLeaderboard;
   final SettingsController? settingsController;
   final GameFeedbackFactory? feedbackFactory;
+  final ProgressionRepository? progressionRepository;
   @override
   State<SkyHopperApp> createState() => _SkyHopperAppState();
 }
@@ -62,6 +65,7 @@ class _SkyHopperAppState extends State<SkyHopperApp> {
       loadLeaderboard: widget.loadLeaderboard,
       settings: _settings,
       feedbackFactory: widget.feedbackFactory,
+      progressionRepository: widget.progressionRepository,
     ),
   );
 }

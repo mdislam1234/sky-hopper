@@ -83,7 +83,9 @@ Gold filled buttons indicate the primary next action. Tonal or text treatments c
 
 ### Navigation and data display
 
-Home presents PLAY first, followed by leaderboard, skins, profile, and settings. Score, coins, and best remain visible in the HUD. Perfect streak, near miss, biome, and best-chase feedback stays transient to avoid crowding narrow screens.
+Home presents PLAY first, then the current daily challenge and progression goals before leaderboard, skins, profile, and settings. The standard endless run remains the fastest path into play. Daily, weekly, and all-time competition belongs on pre-run and leaderboard screens; active gameplay keeps only score, coins, best, and the short mode label. Perfect streak, near miss, biome, and best-chase feedback stays transient to avoid crowding narrow screens.
+
+Daily challenge cards state the UTC date, shared-course rule, ranked attempts remaining, personal best, top score, and whether the next run is ranked or unsaved practice. Mission and achievement cards share one visual grammar: an original Material-icon badge, a short goal, visible progress, a modest coin reward, and an explicit claim state. Completed, claimed, and locked states always use text as well as color. Competition surfaces keep the existing sky-and-cloud language rather than adopting a dense dashboard or casino presentation.
 
 ### Forms and overlays
 
@@ -100,6 +102,8 @@ Motion communicates bounce, collection, hazard impact, biome change, and earned 
 ### Content and data visualization
 
 The voice is brief and arcade-direct: `PLAY`, `PERFECT!`, `CLOSE!`, `NEW BEST!`, and concrete save recovery. Persisted score remains the upward-progress integer, and coin values retain their existing economy.
+
+Progression labels use equally direct language: `PLAY DAILY`, `PRACTICE DAILY`, `COMPLETE`, `CLAIM`, and `CLAIMED`. Server-confirmed state is never implied before a successful response. Network failures keep previously confirmed information visible when possible and provide a short retry message without inventing attempts, rewards, or ranks.
 
 ## Do's and Don'ts
 

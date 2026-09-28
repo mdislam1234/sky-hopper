@@ -19,6 +19,10 @@ import '../../core/data/data_exception.dart';
 import '../game/audio/game_feedback_controller.dart';
 import '../settings/settings_controller.dart';
 import '../settings/settings_screen.dart';
+import '../progression/daily_challenge_screen.dart';
+import '../progression/progression_goals_screen.dart';
+import '../progression/data/progression_repository.dart';
+import '../progression/models/progression_snapshot.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({
@@ -27,6 +31,7 @@ class AuthGate extends StatefulWidget {
     this.loadLeaderboard,
     required this.settings,
     this.feedbackFactory,
+    this.progressionRepository,
     super.key,
   });
   final AuthController controller;
@@ -34,6 +39,7 @@ class AuthGate extends StatefulWidget {
   final LoadLeaderboard? loadLeaderboard;
   final SettingsController settings;
   final GameFeedbackFactory? feedbackFactory;
+  final ProgressionRepository? progressionRepository;
   @override
   State<AuthGate> createState() => _AuthGateState();
 }
@@ -45,9 +51,16 @@ class _AuthGateState extends State<AuthGate> {
   bool _leaderboardOpen = false;
   bool _skinsOpen = false;
   bool _settingsOpen = false;
+  bool _dailyChallengeOpen = false;
+  bool _dailyMissionsOpen = false;
+  bool _achievementsOpen = false;
   bool _openingGame = false;
   int _runBestScore = 0;
   SkinAppearance _runAppearance = SkinAppearance.defaultSkin;
+  int? _runSeed;
+  String? _runModeLabel;
+  bool _runPreview = false;
+  SubmitGameResult? _runSubmit;
 
   @override
   void initState() {
@@ -65,6 +78,9 @@ class _AuthGateState extends State<AuthGate> {
         _leaderboardOpen = false;
         _skinsOpen = false;
         _settingsOpen = false;
+        _dailyChallengeOpen = false;
+        _dailyMissionsOpen = false;
+        _achievementsOpen = false;
         _openingGame = false;
       }
     });
@@ -103,6 +119,15 @@ class _AuthGateState extends State<AuthGate> {
             ? null
             : () => setState(() => _profileOpen = true),
         onSettings: () => setState(() => _settingsOpen = true),
+        onDailyChallenge: widget.progressionRepository == null
+            ? null
+            : () => setState(() => _dailyChallengeOpen = true),
+        onDailyMissions: widget.progressionRepository == null
+            ? null
+            : () => setState(() => _dailyMissionsOpen = true),
+        onAchievements: widget.progressionRepository == null
+            ? null
+            : () => setState(() => _achievementsOpen = true),
       );
     } else if (auth.stage == AuthStage.signedOut ||
         auth.stage == AuthStage.unconfigured) {
@@ -167,8 +192,14 @@ class _AuthGateState extends State<AuthGate> {
               appearance: _runAppearance,
               personalBestScore: _runBestScore,
               feedbackFactory: widget.feedbackFactory,
-              onHome: () => setState(() => _gameOpen = false),
-              submitGameResult: _saveFor(auth.profile!.id),
+              seed: _runSeed,
+              modeLabel: _runModeLabel,
+              preview: _runPreview,
+              onHome: () => setState(() {
+                _gameOpen = false;
+                if (_runModeLabel != null) _dailyChallengeOpen = false;
+              }),
+              submitGameResult: _runPreview ? null : _saveFor(auth.profile!.id),
             ),
           ),
         if (_splashComplete && auth.stage == AuthStage.ready && _settingsOpen)
@@ -191,7 +222,53 @@ class _AuthGateState extends State<AuthGate> {
               load:
                   widget.loadLeaderboard ??
                   () async => throw const DataException(DataError.unavailable),
+              loadPeriod: widget.progressionRepository?.fetchLeaderboard,
               onBack: () => setState(() => _leaderboardOpen = false),
+            ),
+          ),
+        if (_splashComplete &&
+            auth.stage == AuthStage.ready &&
+            auth.profile != null &&
+            _dailyChallengeOpen)
+          MaterialPage(
+            key: const ValueKey(AppRoutes.dailyChallenge),
+            name: AppRoutes.dailyChallenge,
+            child: DailyChallengeScreen(
+              load: widget.progressionRepository!.fetchSnapshot,
+              onPlay: (snapshot, ranked) => _openDaily(auth, snapshot, ranked),
+              onBack: () => setState(() => _dailyChallengeOpen = false),
+            ),
+          ),
+        if (_splashComplete &&
+            auth.stage == AuthStage.ready &&
+            auth.profile != null &&
+            _dailyMissionsOpen)
+          MaterialPage(
+            key: const ValueKey(AppRoutes.dailyMissions),
+            name: AppRoutes.dailyMissions,
+            child: ProgressionGoalsScreen(
+              kind: RewardKind.mission,
+              load: widget.progressionRepository!.fetchSnapshot,
+              claim: widget.progressionRepository!.claimReward,
+              onBalanceChanged: () =>
+                  auth.refreshConfirmedProfile(auth.profile!.id),
+              onBack: () => setState(() => _dailyMissionsOpen = false),
+            ),
+          ),
+        if (_splashComplete &&
+            auth.stage == AuthStage.ready &&
+            auth.profile != null &&
+            _achievementsOpen)
+          MaterialPage(
+            key: const ValueKey(AppRoutes.achievements),
+            name: AppRoutes.achievements,
+            child: ProgressionGoalsScreen(
+              kind: RewardKind.achievement,
+              load: widget.progressionRepository!.fetchSnapshot,
+              claim: widget.progressionRepository!.claimReward,
+              onBalanceChanged: () =>
+                  auth.refreshConfirmedProfile(auth.profile!.id),
+              onBack: () => setState(() => _achievementsOpen = false),
             ),
           ),
         if (_splashComplete &&
@@ -235,16 +312,21 @@ class _AuthGateState extends State<AuthGate> {
         if (page.name == AppRoutes.settings && mounted) {
           setState(() => _settingsOpen = false);
         }
+        if (page.name == AppRoutes.dailyChallenge && mounted) {
+          setState(() => _dailyChallengeOpen = false);
+        }
+        if (page.name == AppRoutes.dailyMissions && mounted) {
+          setState(() => _dailyMissionsOpen = false);
+        }
+        if (page.name == AppRoutes.achievements && mounted) {
+          setState(() => _achievementsOpen = false);
+        }
       },
     );
   }
 
   SubmitGameResult _saveFor(String ownerId) =>
-      (result) => widget.controller.submitRunFor(
-        ownerId,
-        result,
-        widget.submitGameResult,
-      );
+      (result) => widget.controller.submitRunFor(ownerId, result, _runSubmit);
 
   Future<void> _openGame(AuthController auth) async {
     if (_openingGame || auth.profile == null) return;
@@ -270,6 +352,31 @@ class _AuthGateState extends State<AuthGate> {
       _openingGame = false;
       _runBestScore = bestScore;
       _runAppearance = auth.selectedAppearance;
+      _runSeed = null;
+      _runModeLabel = null;
+      _runPreview = false;
+      _runSubmit = widget.submitGameResult;
+      _gameOpen = true;
+    });
+  }
+
+  void _openDaily(
+    AuthController auth,
+    ProgressionSnapshot snapshot,
+    bool ranked,
+  ) {
+    final repository = widget.progressionRepository;
+    if (auth.profile == null || repository == null) return;
+    setState(() {
+      _runAppearance = auth.selectedAppearance;
+      _runBestScore = snapshot.dailyBest;
+      _runSeed = snapshot.challengeSeed;
+      _runModeLabel = ranked ? 'DAILY · RANKED' : 'DAILY · PRACTICE';
+      _runPreview = !ranked;
+      _runSubmit = ranked
+          ? (result) =>
+                repository.submitDailyResult(snapshot.challengeDate, result)
+          : null;
       _gameOpen = true;
     });
   }

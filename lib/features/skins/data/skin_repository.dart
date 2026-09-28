@@ -22,7 +22,7 @@ class SkinRepository implements SkinStore {
     final rows = await _client
         .from('skin_catalog')
         .select(
-          'id,name,description,cost,primary_color,secondary_color,accent_color',
+          'id,name,description,cost,primary_color,secondary_color,accent_color,unlock_achievement_id',
         )
         .eq('is_active', true)
         .order('sort_order')

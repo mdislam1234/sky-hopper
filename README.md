@@ -618,4 +618,87 @@ Coin sparkle and counter pulse, perfect/near-miss particles, lightning sparks an
 
 `DESIGN.md` records the durable colors, typography, shapes, components, motion and reduced-motion rules used by the Settings and gameplay feedback UI. No Supabase migration, schema, policy, RPC, grant or database row changed. The three migration MD5 hashes remain `2481c9a35392126533828fe88e2f0343`, `76966a13023ff70d041d3a2bd32060d3` and `4f4a11cf557108c2372cae9306c2217e`.
 
-Not yet implemented: daily challenges, missions, achievements, daily leaderboard, seasonal events, AdMob, UMP, `app-ads.txt`, or the Play Store Sky Hopper 2.0 release.
+At the Phase 11 checkpoint, daily challenges, missions, achievements, and daily competition were still pending; the Phase 12 section below records their implementation. Seasonal events, AdMob, UMP, `app-ads.txt`, and the Play Store Sky Hopper 2.0 release remain outside the current scope.
+
+## Sky Hopper 2.0 — Phase 12
+
+Phase 12 adds the retention, competition, and progression layer while preserving normal endless `PLAY`, the existing primary score, authentication, coin persistence, skins, environments, hazards, audio, and game-feel systems.
+
+### Daily challenge and competition
+
+The Daily Challenge uses one deterministic seed derived from the authoritative UTC calendar date. A date's seed drives the existing seeded game generator, so players receive the same platform sequence, biome thresholds, hazard layout, and major coin route. Normal endless mode still creates its seed through the original random path and is unchanged.
+
+Each authenticated player receives **three ranked Daily Challenge attempts per UTC day**. The server owns the date and attempt count. A successful ranked run consumes one attempt and may appear on the Daily leaderboard. Once all three attempts are used, the same deterministic course remains available as `PRACTICE DAILY`; practice runs explicitly disable persistence and never consume an attempt, award gameplay coins, update progression, or enter any leaderboard.
+
+The leaderboard now has three scopes:
+
+- **Daily:** each player's best ranked result for the current UTC challenge only.
+- **Weekly:** each player's best saved score from the current UTC week, starting Monday 00:00 UTC and ending the following Monday.
+- **All time:** each player's best saved score across the existing score history.
+
+All scopes use the existing score as the primary metric, followed by height, earliest `played_at`, and row ID for stable tie-breaking. Responses expose only rank, display name, safe HTTPS avatar URL, score, height, played time, and current-user highlighting.
+
+### Missions, achievements, rewards, and streaks
+
+Three missions are materialized deterministically for each UTC date: a modest coin target, a reachable score target, and one style goal selected from perfect landings, perfect streak, near misses, moving-platform landings, or reaching Storm. Progress is batched into the authenticated Game Over submission rather than written every frame. Mission state survives restarts in Supabase and rolls over at 00:00 UTC.
+
+The first achievement catalog contains eleven goals: First Flight, Cloud Climber, Storm Chaser, Night Rider, To the Stars, Perfectionist, Daredevil, Coin Collector, High Flyer, Daily Player, and Consistent. Progress uses saved-run metrics and server history. The Stormbound and Starlight cosmetics are granted automatically for Storm Chaser and To the Stars; they remain cosmetic and cannot be purchased to bypass their achievements.
+
+Mission and achievement rewards are modest lifetime-coin grants. Claiming calls one authenticated RPC with only a reward type and catalog ID. The server resolves the date, completion state, configured reward, prior claim, and resulting balance while holding the profile row lock. Claims are idempotent and the client cannot supply a coin amount. The UI shows progress, `COMPLETE`, `CLAIM`, and `CLAIMED`, then refreshes the confirmed profile balance after a successful claim.
+
+Any successfully persisted normal or Daily run qualifies the current UTC date for the lightweight return streak. Additional runs on the same date do not increment it; the next consecutive UTC date adds one, and a missed date restarts the current streak at one. Best streak is retained. Opening the app alone never qualifies, and no owned item can be lost.
+
+### Database and security architecture
+
+The new timestamped migration is `supabase/migrations/20260927235931_phase12_progression.sql`. Its filename matches the hosted migration version assigned by Supabase MCP. It adds:
+
+- `achievement_catalog`
+- `run_progression`
+- `daily_challenge_results`
+- `daily_missions`
+- `user_achievements`
+- `player_streaks`
+- two achievement-linked `skin_catalog` rows and `unlock_achievement_id`
+- authenticated `submit_progression_result`, `submit_daily_challenge_result`, `claim_progression_reward`, `get_progression_snapshot`, and `get_competition_leaderboard` RPCs
+
+Every user-specific table has RLS and an owner-only select policy. Direct public, anonymous, and authenticated table mutations are revoked. Security-definer helpers are private and have no client execute grant. Public mutation RPCs derive ownership only from `auth.uid()`, use the server's UTC clock, validate bounded run metrics, serialize each user's balance/attempt mutations with the profile row lock, and retain the Phase 6 UUID retry model. Daily results additionally constrain one user/date/attempt and one user/run. Existing score and coin columns cannot be mutated directly by the client.
+
+No previously applied migration was edited. Their MD5 hashes remain:
+
+- Phase 3: `2481c9a35392126533828fe88e2f0343`
+- Phase 6: `76966a13023ff70d041d3a2bd32060d3`
+- Phase 7: `4f4a11cf557108c2372cae9306c2217e`
+
+### Phase 12 verification
+
+**AUTOMATED VERIFIED**
+
+- `dart format .`: passed; 84 Dart files checked with no outstanding formatting change.
+- `flutter analyze`: passed with **No issues found**.
+- `flutter test --no-pub`: **229 tests passed**: the preserved 201-test Phase 11 baseline plus 28 focused Phase 12 tests.
+- The new tests cover UTC seed rollover and reproducible generation, unchanged normal seeding, ranked/practice rules, UUID/progression payloads, deterministic missions, completion and claims, achievement thresholds, same/consecutive/missed-day streaks, RLS/RPC/date/leaderboard migration contracts, safe public data, Daily/Missions/Achievements UI, leaderboard scopes, current-user highlighting, and responsive layout.
+- The existing authentication, persistence, skins, gameplay, audio/game-feel, camera, and responsive regressions remain green. The small Game Over layout correction keeps Restart and Home reachable before secondary failed-save details at 800×600.
+- Configured `flutter build web --dart-define-from-file=dart_defines.local.json`: passed in 166.3 seconds, including the Wasm dry run; output `build/web`.
+- Configured `flutter build apk --debug --dart-define-from-file=dart_defines.local.json`: passed without the shader fallback; output `build/app/outputs/flutter-apk/app-debug.apk`. Android SDK Platform 35 revision 2 was installed by Gradle. The existing non-fatal Java native-access warning remains.
+- The ignored local Dart-defines file was used only at build time and was not printed or added to Git.
+
+**DEVELOPMENT-ONLY DEMO VERIFIED**
+
+`tool/phase12_preview.dart` creates no Supabase client and keeps all state in memory. Its browser build passed. Manual checks covered September 27 and 28 UTC seeds, one ranked attempt remaining, exhausted attempts with unsaved/unranked practice, Daily/Weekly/All Time tabs, current-user highlighting, mission progress and an in-memory claim, achievement progress, desktop layout, 360×800 layout, and a clean browser console. This fixture is not production authentication or live persistence evidence.
+
+**LIVE SUPABASE VERIFIED**
+
+Supabase MCP applied hosted migration `20260927235931_phase12_progression`. Read-only catalog verification confirmed all six new tables and RLS, the six expected authenticated-select policies, owner checks on every user table, eleven active achievements, both achievement cosmetics, and the expected daily constraints/indexes. There are no anonymous or authenticated direct write grants on the new tables. The five public RPCs are security-definer functions executable by `authenticated` only; anonymous and service-role execution is revoked. The three private helper functions have no client execute permission.
+
+A controlled authenticated live test ran entirely inside explicit transactions followed by `ROLLBACK`. The snapshot returned the server UTC challenge date and seed, a three-attempt limit, three missions, and eleven achievements. RLS exposed only the selected test user's temporary mission/achievement/streak rows and zero other-user rows. Daily, weekly, and all-time leaderboard calls succeeded. A zero-coin Daily submission retried with the same generated run UUID returned the same attempt and score row, created only one temporary result, and left lifetime coins unchanged. Post-rollback verification found zero rows in every Phase 12 user table and preserved the existing 16 score rows and 3 profiles. No real reward was claimed, no existing attempt was consumed, and no existing coin balance or gameplay row changed.
+
+### Development inspection
+
+Build the synthetic progression inspector without credentials:
+
+```powershell
+flutter build web --no-pub --output=build/phase12-preview -t tool/phase12_preview.dart
+node tool/serve_web.mjs build/phase12-preview 3092
+```
+
+Production still starts through `lib/main.dart`, initializes the configured Supabase client, requires authentication, and uses server-confirmed progression. The preview entry point is never imported by production code. AdMob, rewarded/interstitial advertising, UMP, `app-ads.txt`, Play Store signing, production AAB generation, Play Console submission, and merging `sky-hopper-2` into `main` remain Phase 13 work.

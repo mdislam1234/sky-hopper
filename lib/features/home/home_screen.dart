@@ -12,6 +12,9 @@ class HomeScreen extends StatelessWidget {
     this.onProfile,
     this.onPlay,
     this.onLeaderboard,
+    this.onDailyChallenge,
+    this.onDailyMissions,
+    this.onAchievements,
     this.onSkins,
     this.onSettings,
     super.key,
@@ -20,6 +23,9 @@ class HomeScreen extends StatelessWidget {
   final VoidCallback? onProfile;
   final VoidCallback? onPlay;
   final VoidCallback? onLeaderboard;
+  final VoidCallback? onDailyChallenge;
+  final VoidCallback? onDailyMissions;
+  final VoidCallback? onAchievements;
   final VoidCallback? onSkins;
   final VoidCallback? onSettings;
 
@@ -65,6 +71,37 @@ class HomeScreen extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 20),
+          GameMenuButton(
+            label: 'DAILY CHALLENGE',
+            icon: Icons.public_rounded,
+            onPressed:
+                onDailyChallenge ??
+                () => _showMessage(
+                  context,
+                  'Daily Challenge requires a connection.',
+                ),
+          ),
+          const SizedBox(height: 12),
+          GameMenuButton(
+            label: 'DAILY MISSIONS',
+            icon: Icons.flag_outlined,
+            onPressed:
+                onDailyMissions ??
+                () => _showMessage(
+                  context,
+                  'Daily Missions require a connection.',
+                ),
+          ),
+          const SizedBox(height: 12),
+          GameMenuButton(
+            label: 'ACHIEVEMENTS',
+            icon: Icons.workspace_premium_outlined,
+            onPressed:
+                onAchievements ??
+                () =>
+                    _showMessage(context, 'Achievements require a connection.'),
+          ),
+          const SizedBox(height: 12),
           GameMenuButton(
             label: 'LEADERBOARD',
             icon: Icons.emoji_events_outlined,

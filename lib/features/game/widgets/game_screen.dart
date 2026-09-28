@@ -29,6 +29,8 @@ class GameScreen extends StatefulWidget {
     this.appearance = SkinAppearance.defaultSkin,
     this.personalBestScore = 0,
     this.feedbackFactory,
+    this.seed,
+    this.modeLabel,
     super.key,
   });
   final VoidCallback onHome;
@@ -37,6 +39,8 @@ class GameScreen extends StatefulWidget {
   final SkinAppearance appearance;
   final int personalBestScore;
   final GameFeedbackFactory? feedbackFactory;
+  final int? seed;
+  final String? modeLabel;
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
@@ -59,7 +63,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           haptics: const SilentHapticsService(),
         );
     _game = SkyHopperGame(
-      seed: Random().nextInt(1 << 30),
+      seed: widget.seed ?? Random().nextInt(1 << 30),
       appearance: widget.appearance,
       personalBestScore: widget.personalBestScore,
     );
@@ -82,6 +86,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           score: _game.state.score,
           maximumHeight: _game.state.progress.maximumHeight,
           coinsCollected: _game.state.coinsCollected,
+          perfectLandings: _game.state.perfectLandings,
+          bestPerfectStreak: _game.state.bestPerfectStreak,
+          nearMisses: _game.state.nearMisses,
+          movingPlatformLandings: _game.state.movingPlatformLandings,
+          highestBiome: _game.state.environment.biome.index,
         ),
       );
     }
@@ -161,7 +170,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       previous.pauseEngine();
       setState(() {
         _game = SkyHopperGame(
-          seed: Random().nextInt(1 << 30),
+          seed: widget.seed ?? Random().nextInt(1 << 30),
           appearance: widget.appearance,
           personalBestScore: widget.personalBestScore,
         );
@@ -330,6 +339,24 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                             },
                           ),
                         ),
+                        if (widget.modeLabel case final label?)
+                          Positioned(
+                            top: 58,
+                            left: 0,
+                            right: 0,
+                            child: IgnorePointer(
+                              child: Text(
+                                label,
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.labelMedium
+                                    ?.copyWith(
+                                      color: AppColors.deepBlue,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.2,
+                                    ),
+                              ),
+                            ),
+                          ),
                         if (value.biomeNotice case final biome?)
                           _biomeNotice(biome),
                         if (value.feedbackNotice case final message?)

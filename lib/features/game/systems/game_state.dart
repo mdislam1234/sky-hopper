@@ -39,6 +39,9 @@ class GameState {
   int direction = 0;
   int bounces = 0;
   int perfectStreak = 0;
+  int perfectLandings = 0;
+  int bestPerfectStreak = 0;
+  int movingPlatformLandings = 0;
   int nearMisses = 0;
   bool newPersonalBest = false;
   final List<GameFeedbackEvent> _feedbackEvents = [];
@@ -64,6 +67,9 @@ class GameState {
     direction = 0;
     bounces = 0;
     perfectStreak = 0;
+    perfectLandings = 0;
+    bestPerfectStreak = 0;
+    movingPlatformLandings = 0;
     nearMisses = 0;
     newPersonalBest = false;
     _feedbackEvents.clear();
@@ -201,6 +207,8 @@ class GameState {
           landing.safeWidth * GameConfig.perfectLandingToleranceFraction;
       if (isPerfect) {
         perfectStreak = min(GameConfig.maximumPerfectStreak, perfectStreak + 1);
+        perfectLandings++;
+        bestPerfectStreak = max(bestPerfectStreak, perfectStreak);
         _feedbackEvents.add(
           GameFeedbackEvent(
             GameFeedbackType.perfectLanding,
@@ -212,6 +220,7 @@ class GameState {
       } else {
         perfectStreak = 0;
       }
+      if (landing.type == PlatformType.moving) movingPlatformLandings++;
       if (landing.type == PlatformType.spike && !landing.nearMissAwarded) {
         final gap = landing.spikesOnRight
             ? landing.spikeLeft - innerRight
