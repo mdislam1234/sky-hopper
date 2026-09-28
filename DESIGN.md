@@ -93,7 +93,7 @@ Settings uses adaptive switches with a title, a short consequence, and a support
 
 Android Settings may add Google's `Privacy Options` row only when UMP requires the entry point. It follows the existing ListTile grammar and opens the provider-owned form; no custom consent card or disable-ads switch belongs here.
 
-At normal-mode Game Over, the optional outlined `WATCH VIDEO · +N COINS` action appears only after the run is server-saved and an ad is ready. It follows result and save status, while the filled Restart and text Home actions remain visible and usable. Claiming uses plain progress and server-confirmed success/retry text. Advertising never uses the gold primary treatment, countdown pressure, false scarcity, or a control that resembles gameplay rewards. Daily Challenge, active gameplay, pause, Login, and Web contain no ad actions.
+At normal-mode Game Over, the optional outlined reward slot appears only after an eligible coin-collecting run is server-saved. It shows a disabled checking/loading state until the rewarded ad is ready, then becomes `WATCH VIDEO · +N COINS`; a restrained unavailable state offers retry after a load failure. It disappears after consumption or claim. The filled Restart and text Home actions remain visible and usable throughout. Claiming uses plain progress and server-confirmed success/retry text. Advertising never uses the gold primary treatment, countdown pressure, false scarcity, or a control that resembles gameplay rewards. Daily Challenge, unsaved runs, active gameplay, pause, Login, and Web contain no ad actions.
 
 ### Iconography
 

@@ -18,6 +18,7 @@ class _FakeAdService extends AdService {
   bool interstitialOutcome = true;
   int initializeCalls = 0;
   int rewardCalls = 0;
+  int rewardRetryCalls = 0;
   int interstitialCalls = 0;
   int privacyCalls = 0;
 
@@ -31,10 +32,20 @@ class _FakeAdService extends AdService {
   bool get rewardedReady => rewardReady;
 
   @override
+  RewardedAdState get rewardedState => !permitted
+      ? RewardedAdState.unavailable
+      : rewardReady
+      ? RewardedAdState.ready
+      : RewardedAdState.loading;
+
+  @override
   bool get interstitialReady => interstitialIsReady;
 
   @override
   Future<void> initialize() async => initializeCalls++;
+
+  @override
+  Future<void> retryRewarded() async => rewardRetryCalls++;
 
   @override
   Future<RewardedAdOutcome> showRewarded() async {

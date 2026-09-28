@@ -770,3 +770,20 @@ Phase 13B adds the release-only production configuration bridge without changing
 - Publisher ID: edit the prepared ignored `web/app-ads.txt` and replace only `<PUBLISHER_ID>`; in a fresh checkout, first copy `docs/app-ads.txt.example` there.
 
 Android release builds require all three production IDs and validate exact ID shape, a shared publisher component, and exclusion of Google's sample publisher. Android debug/profile builds continue to force official test IDs. Flutter Web neither imports the mobile service nor requires the local AdMob file. The publisher ID is intentionally separate because it belongs in a public authorized-sellers file, not the app binary or Android manifest.
+
+### Phase 13 rewarded runtime fix
+
+The original Game Over visibility condition combined run eligibility with live ad readiness. The offer rendered only when the overlay was open, the run was normal mode and server-saved, at least one coin had been collected, the offer had not been consumed, no full-screen ad was busy, UMP allowed requests, and a rewarded ad object was already loaded. Consent checks, SDK startup, an in-flight rewarded load, and a failed load therefore all produced the same hidden UI.
+
+Rewarded ads now expose explicit `checkingConsent`, `loading`, `ready`, and `unavailable` states through `AdService` and `MonetizationController`. An eligible saved normal run keeps a disabled reward slot visible while consent/loading completes, enables it only after the rewarded load callback, and offers `RETRY VIDEO` after a temporary failure. Daily Challenge, unsaved, zero-coin, consumed/claimed, and Web runs remain hidden. Service notifications still flow through the controller into the Game Over `ListenableBuilder`, so a load that completes after Game Over immediately rebuilds the action. A per-run claim gate prevents duplicate client claim calls while preserving retry after a failed server confirmation.
+
+Android startup retains the UMP sequence: read cached consent, start ads only if cached `canRequestAds` permits it, request a consent-info update, call `loadAndShowConsentFormIfRequired`, refresh consent, then initialize Mobile Ads and preload. Failed updates reuse only valid cached permission; an initially false state that becomes true starts loading after the final refresh. Debug-only `[Ads]` messages report consent state, permission, SDK initialization, rewarded request/load/show/earned events, readiness transitions, and Game Over offer state without identifiers or credentials.
+
+Verification for this correction:
+
+- `flutter analyze`: passed with **No issues found**.
+- `flutter test`: **260 tests passed**, including nine focused rewarded runtime tests for loading, late readiness, consent gating, consent transition, cached consent/update failure, load failure/retry, Daily exclusion, consumed exclusion, and one claim per earned result.
+- Debug APK: `build/app/outputs/flutter-apk/app-debug.apk`, built 2026-09-28 17:09 Asia/Dhaka with ignored `dart_defines.local.json`.
+- Compiled debug assets contain the new loading/unavailable UI and Google's official sample rewarded/interstitial IDs; the merged debug manifest contains Google's official sample App ID.
+- No Supabase migration or backend code changed.
+- A physical-device retest of the new diagnostics and Google's runtime load/earned callbacks remains pending because no Android device was connected during this build.

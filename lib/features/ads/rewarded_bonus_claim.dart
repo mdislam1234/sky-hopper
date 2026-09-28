@@ -32,3 +32,24 @@ class RewardedBonusClaim {
 typedef ClaimRewardedRunBonus = Future<RewardedBonusClaim> Function(
   String runId,
 );
+
+/// Prevents duplicate client claim calls while retaining retry after failure.
+class RewardedClaimGate {
+  bool _inFlight = false;
+  bool _completed = false;
+
+  bool get completed => _completed;
+
+  bool tryStart() {
+    if (_inFlight || _completed) return false;
+    _inFlight = true;
+    return true;
+  }
+
+  void complete() {
+    _inFlight = false;
+    _completed = true;
+  }
+
+  void releaseForRetry() => _inFlight = false;
+}

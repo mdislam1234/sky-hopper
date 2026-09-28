@@ -17,6 +17,9 @@ class GameOverOverlay extends StatelessWidget {
     this.previousBest = 0,
     this.rewardActionLabel,
     this.onReward,
+    this.onRewardRetry,
+    this.rewardActionEnabled = true,
+    this.rewardLoading = false,
     this.rewardBusy = false,
     this.rewardStatus,
     super.key,
@@ -30,6 +33,9 @@ class GameOverOverlay extends StatelessWidget {
   final int previousBest;
   final String? rewardActionLabel;
   final VoidCallback? onReward;
+  final VoidCallback? onRewardRetry;
+  final bool rewardActionEnabled;
+  final bool rewardLoading;
   final bool rewardBusy;
   final String? rewardStatus;
   final bool paused;
@@ -114,8 +120,10 @@ class GameOverOverlay extends StatelessWidget {
                   if (rewardActionLabel case final label?) ...[
                     const SizedBox(height: 10),
                     OutlinedButton.icon(
-                      onPressed: rewardBusy ? null : onReward,
-                      icon: rewardBusy
+                      onPressed: rewardBusy || !rewardActionEnabled
+                          ? null
+                          : onReward,
+                      icon: rewardBusy || rewardLoading
                           ? const SizedBox.square(
                               dimension: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
@@ -123,6 +131,11 @@ class GameOverOverlay extends StatelessWidget {
                           : const Icon(Icons.ondemand_video_rounded),
                       label: Text(label),
                     ),
+                    if (onRewardRetry != null)
+                      TextButton(
+                        onPressed: rewardBusy ? null : onRewardRetry,
+                        child: const Text('RETRY VIDEO'),
+                      ),
                   ],
                 ],
                 const SizedBox(height: 16),

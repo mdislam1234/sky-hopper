@@ -27,6 +27,7 @@ class MonetizationController extends ChangeNotifier {
 
   bool get rewardedAvailable =>
       !_fullscreenBusy && _service.canRequestAds && _service.rewardedReady;
+  RewardedAdState get rewardedState => _service.rewardedState;
   bool get privacyOptionsRequired => _service.privacyOptionsRequired;
   bool get fullscreenBusy => _fullscreenBusy;
 
@@ -47,6 +48,18 @@ class MonetizationController extends ChangeNotifier {
       coinsCollected > 0 &&
       !alreadyConsumed &&
       rewardedAvailable;
+
+  bool isRewardedRunEligible({
+    required bool isNormalMode,
+    required bool runSaved,
+    required int coinsCollected,
+    required bool alreadyConsumed,
+  }) => isNormalMode && runSaved && coinsCollected > 0 && !alreadyConsumed;
+
+  Future<void> retryRewarded() async {
+    if (_fullscreenBusy) return;
+    await _service.retryRewarded();
+  }
 
   void recordCompletedRun(String runId, {required bool isNormalMode}) {
     if (!isNormalMode) return;
