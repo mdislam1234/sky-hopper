@@ -14,6 +14,8 @@ import 'features/game/audio/game_feedback_controller.dart';
 import 'features/game/audio/haptics_service.dart';
 import 'features/settings/data/game_settings_store.dart';
 import 'features/settings/settings_controller.dart';
+import 'features/ads/ad_service_factory.dart';
+import 'features/ads/monetization_controller.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +34,7 @@ Future<Widget> _initializeApp() async {
           skinStore: SkinRepository(client),
         );
   final progression = client == null ? null : ProgressionRepository(client);
+  final monetization = MonetizationController(createAdService());
   return SkyHopperApp(
     authController: auth,
     loadLeaderboard: client == null
@@ -39,6 +42,7 @@ Future<Widget> _initializeApp() async {
         : () => LeaderboardRepository(client).fetchLeaderboard(),
     submitGameResult: progression?.submitGameResult,
     progressionRepository: progression,
+    monetizationController: monetization,
     settingsController: settings,
     feedbackFactory: () => GameFeedbackController(
       settings: settings,

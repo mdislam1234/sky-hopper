@@ -10,7 +10,7 @@ Splash resolves authentication before Login or Home. PLAY preserves the endless 
 ## Toolchain
 
 - Flutter 3.47.5 / Dart 3.13.4
-- Flame 1.38.2; supabase_flutter 2.17.2 (see pubspec.lock)
+- Flame 1.38.2; supabase_flutter 2.17.2; google_mobile_ads 9.1.0 (see pubspec.lock)
 - SDK: `C:\Users\Admin\development\flutter`
 - Android application ID: `com.skyhopper.game`
 - Dart package: `sky_hopper`; display name: Sky Hopper
@@ -701,4 +701,51 @@ flutter build web --no-pub --output=build/phase12-preview -t tool/phase12_previe
 node tool/serve_web.mjs build/phase12-preview 3092
 ```
 
-Production still starts through `lib/main.dart`, initializes the configured Supabase client, requires authentication, and uses server-confirmed progression. The preview entry point is never imported by production code. AdMob, rewarded/interstitial advertising, UMP, `app-ads.txt`, Play Store signing, production AAB generation, Play Console submission, and merging `sky-hopper-2` into `main` remain Phase 13 work.
+Production still starts through `lib/main.dart`, initializes the configured Supabase client, requires authentication, and uses server-confirmed progression. The preview entry point is never imported by production code. The following Phase 13A section records the new monetization and release-preparation layer; production credentials, Play submission, and merging remain outside this phase.
+
+## Sky Hopper 2.0 — Phase 13A
+
+Phase 13A prepares restrained Android monetization, privacy controls, and Android release configuration without changing physics, scoring, progression, leaderboards, skins, or Daily Challenge rules. Flutter Web stays functional and ad-free.
+
+### Android ads and consent
+
+`google_mobile_ads` 9.1.0 is isolated behind `AdService`. Android creates `GoogleMobileAdsService`; Web and non-Android platforms resolve a no-op implementation through conditional imports; tests inject deterministic fakes. Startup asks Google's User Messaging Platform to update consent information, loads and displays Google's form when required, and starts ad loading only when `canRequestAds()` allows it. Cached permission may safely allow initialization while a refresh is in flight. SDK and ad initialization are guarded against duplicate calls.
+
+Development and debug builds use only Google's official Android sample identifiers. Release Dart code has no test-ID fallback: supply `ADMOB_REWARDED_AD_UNIT_ID` and `ADMOB_INTERSTITIAL_AD_UNIT_ID` as compile-time Dart defines. A release build also requires a production `ADMOB_APP_ID` in the ignored `android/release.properties`; Gradle rejects the Google sample app ID. No real AdMob ID or publisher ID is committed.
+
+At a successfully saved **normal-mode** Game Over, a player who collected coins may voluntarily watch one rewarded ad. The displayed estimate and server rule are `ceil(run coins / 2)`, bounded to 1–25 coins. Dismissal before Google's earned callback grants nothing. After the callback, Flutter sends only the immutable saved run UUID to `claim_rewarded_run_bonus`; the database derives `auth.uid()`, verifies ownership and normal mode, reads `coins_collected`, calculates the bonus, locks the profile, and records one idempotent claim per run. A failed confirmation can be retried without watching a second ad. The mobile earned callback is not cryptographic proof of viewing; AdMob Server-Side Verification is not implemented, so this design does not claim full anti-cheat security.
+
+The additive migration is `supabase/migrations/20260928035631_phase13a_rewarded_bonus.sql`; its filename matches the hosted Supabase migration version. It adds `rewarded_ad_claims`, owner-only SELECT RLS, and the authenticated-only claim RPC. Direct anonymous/authenticated inserts, updates, and deletes remain revoked.
+
+Interstitials are considered only after Game Over when Restart or Home is chosen. The centralized session policy never shows one on the first run, schedules around every third successfully saved normal run, enforces a two-minute full-screen cooldown, skips Daily Challenge and practice, suppresses the pending interstitial after a rewarded ad, and never blocks navigation after a load/show failure. There are no banners, app-open ads, Login ads, gameplay ads, pause ads, or Daily Challenge ads. Audio is already paused at Game Over and resumes through the existing Restart path after dismissal.
+
+Settings shows Google's **Privacy Options** only when UMP reports that an entry point is required. There is no homemade consent dialog, fake disable-ads switch, or promise that every advertisement can be disabled. The Web privacy draft is at `/privacy/` (`web/privacy/index.html`) and preserves the Flutter app at `/`. It covers Google sign-in, Supabase profile/gameplay/progression records, advertising data, consent choices, retention, deletion requests, and age considerations without claiming legal compliance.
+
+`docs/app-ads.txt.example` is documentation only and deliberately contains a placeholder. Do not copy it to `web/app-ads.txt` until AdMob supplies the real publisher ID. The final file must be at the root of the developer website, and that same website must be listed in Google Play.
+
+### Android release setup
+
+The Android application ID remains `com.skyhopper.game`. `compileSdk` and `targetSdk` are 36; the current Flutter toolchain resolves `flutter.minSdkVersion` to API 24, which is compatible with this Google Mobile Ads configuration. Debug builds use the official sample AdMob app ID. Release tasks fail clearly unless both private files are configured:
+
+1. Copy `android/key.properties.example` to ignored `android/key.properties`, point it at the private Play upload keystore, and fill the passwords locally.
+2. Copy `android/release.properties.example` to ignored `android/release.properties` and supply the real AdMob Android app ID.
+3. Supply production public Supabase values plus production rewarded/interstitial unit IDs through an ignored Dart-defines file.
+4. Run `flutter build appbundle --release --dart-define-from-file=<private-file>`.
+
+No keystore, password, production ad ID, service-role key, or private key belongs in Git. Missing release credentials never fall back to debug signing. An upload-ready AAB remains pending until the developer creates the Play upload key and supplies real public runtime/AdMob configuration.
+
+The Play Console and physical-device workflow is tracked in `PLAY_STORE_CHECKLIST.md`. On an Android phone, use only Google's test ads to verify initial consent, the conditional Privacy Options row, rewarded earn/dismiss behavior, one bonus per saved run, every-third-normal-run interstitial policy, background/resume, audio restoration, normal saving, and ad-free Daily Challenge. Never click live ads during testing.
+
+### Phase 13A verification
+
+- `dart format .`: passed with 93 Dart files checked and no outstanding change.
+- `flutter analyze`: passed with **No issues found**.
+- `flutter test`: **244 tests passed**, preserving the 229-test Phase 12 baseline and adding 15 focused monetization/privacy/release tests. A final focused rerun also passed after enforcing unconditional Google test units in debug builds.
+- Configured `flutter build web --dart-define-from-file=dart_defines.local.json`: passed, including the Wasm dry run. `build/web/privacy/index.html` is present, and the compiled Web HTML/JavaScript contains no Mobile Ads identifier or SDK reference.
+- Configured `flutter build apk --debug --dart-define-from-file=dart_defines.local.json`: passed; output `build/app/outputs/flutter-apk/app-debug.apk`. The merged manifest confirms package `com.skyhopper.game`, min/target API 24/36, and Google's official sample AdMob app ID.
+- A direct Gradle release dry check failed intentionally before assembly with the explicit missing `android/key.properties` message. It did not fall back to the debug signing key.
+- Supabase MCP applied hosted migration `20260928035631 / phase13a_rewarded_bonus`. Read-only verification confirmed RLS, one owner-only authenticated SELECT policy, authenticated-only RPC execution, and no authenticated direct INSERT/UPDATE/DELETE privileges.
+- A controlled live RPC test used an eligible saved normal run inside a transaction and rolled back. It confirmed server-derived bonus math, one balance increment, and idempotent second-call behavior. Post-rollback verification found zero reward-claim rows, so no real balance or game data changed.
+- Existing Phase 3, 6, 7, and 12 migration files are unchanged. Their MD5 values remain `2481c9a35392126533828fe88e2f0343`, `76966a13023ff70d041d3a2bd32060d3`, `4f4a11cf557108c2372cae9306c2217e`, and `4fc9a94dd5381cb3a5c558f8441caa6a`.
+- The source/config scan found no real credential, private key, keystore, signing file, production AdMob value, or privileged Supabase key. Matches were documentation and synthetic validation-test strings. Ignored private Dart defines were used without printing their contents.
+- **Physical Android consent/ad/audio verification: pending.** The APK and manifest are verified, but no connected physical phone was available to observe Google's `Test Ad` presentation, region-specific UMP form, or audible restoration.

@@ -9,6 +9,10 @@ import 'features/game/audio/game_feedback_controller.dart';
 import 'features/settings/data/game_settings_store.dart';
 import 'features/settings/settings_controller.dart';
 import 'features/progression/data/progression_repository.dart';
+import 'features/ads/ad_service.dart';
+import 'features/ads/monetization_controller.dart';
+
+import 'dart:async';
 
 class SkyHopperApp extends StatefulWidget {
   const SkyHopperApp({
@@ -19,6 +23,7 @@ class SkyHopperApp extends StatefulWidget {
     this.settingsController,
     this.feedbackFactory,
     this.progressionRepository,
+    this.monetizationController,
     super.key,
   });
   final AuthController? authController;
@@ -28,6 +33,7 @@ class SkyHopperApp extends StatefulWidget {
   final SettingsController? settingsController;
   final GameFeedbackFactory? feedbackFactory;
   final ProgressionRepository? progressionRepository;
+  final MonetizationController? monetizationController;
   @override
   State<SkyHopperApp> createState() => _SkyHopperAppState();
 }
@@ -39,17 +45,21 @@ class _SkyHopperAppState extends State<SkyHopperApp> {
   late final SettingsController _settings =
       widget.settingsController ??
       SettingsController(MemoryGameSettingsStore());
+  late final MonetizationController _monetization =
+      widget.monetizationController ?? MonetizationController(NoopAdService());
 
   @override
   void initState() {
     super.initState();
     _settings.load();
+    unawaited(_monetization.initialize());
   }
 
   @override
   void dispose() {
     if (widget.authController == null) _auth.dispose();
     if (widget.settingsController == null) _settings.dispose();
+    if (widget.monetizationController == null) _monetization.dispose();
     super.dispose();
   }
 
@@ -66,6 +76,7 @@ class _SkyHopperAppState extends State<SkyHopperApp> {
       settings: _settings,
       feedbackFactory: widget.feedbackFactory,
       progressionRepository: widget.progressionRepository,
+      monetization: _monetization,
     ),
   );
 }

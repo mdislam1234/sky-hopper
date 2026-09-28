@@ -20,6 +20,9 @@ import '../audio/game_audio_service.dart';
 import '../audio/game_feedback_controller.dart';
 import '../audio/haptics_service.dart';
 import 'game_over_overlay.dart';
+import '../../ads/ad_service.dart';
+import '../../ads/monetization_controller.dart';
+import '../../ads/rewarded_bonus_claim.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({
@@ -31,6 +34,9 @@ class GameScreen extends StatefulWidget {
     this.feedbackFactory,
     this.seed,
     this.modeLabel,
+    this.monetization,
+    this.rewardedEligible = false,
+    this.claimRewardedBonus,
     super.key,
   });
   final VoidCallback onHome;
@@ -41,6 +47,9 @@ class GameScreen extends StatefulWidget {
   final GameFeedbackFactory? feedbackFactory;
   final int? seed;
   final String? modeLabel;
+  final MonetizationController? monetization;
+  final bool rewardedEligible;
+  final ClaimRewardedRunBonus? claimRewardedBonus;
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
@@ -52,6 +61,12 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   final _focus = FocusNode();
   final Set<LogicalKeyboardKey> _keys = {};
   final Map<int, int> _pointers = {};
+  bool _normalRunRecorded = false;
+  bool _rewardAdConsumed = false;
+  bool _rewardClaimPending = false;
+  bool _rewardBusy = false;
+  bool _breakBusy = false;
+  String? _rewardStatus;
   @override
   void initState() {
     super.initState();
@@ -71,6 +86,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       submit: widget.submitGameResult,
       preview: widget.preview,
     );
+    _save.addListener(_onSaveChanged);
     _game.status.addListener(_onRunChanged);
     _game.feedbackEvents.addListener(_onFeedback);
     WidgetsBinding.instance.addObserver(this);
@@ -78,6 +94,16 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   void _onFeedback() => _feedback.handle(_game.feedbackEvents.value);
+
+  void _onSaveChanged() {
+    if (_save.phase == SavePhase.saved &&
+        widget.rewardedEligible &&
+        !_normalRunRecorded) {
+      _normalRunRecorded = true;
+      widget.monetization?.recordCompletedRun(_save.runId, isNormalMode: true);
+    }
+    if (mounted) setState(() {});
+  }
 
   void _onRunChanged() {
     if (_game.state.phase == RunPhase.gameOver) {
@@ -167,6 +193,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       previous.status.removeListener(_onRunChanged);
       previous.feedbackEvents.removeListener(_onFeedback);
       final previousSave = _save;
+      previousSave.removeListener(_onSaveChanged);
       previous.pauseEngine();
       setState(() {
         _game = SkyHopperGame(
@@ -179,6 +206,12 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           submit: widget.submitGameResult,
           preview: widget.preview,
         );
+        _save.addListener(_onSaveChanged);
+        _normalRunRecorded = false;
+        _rewardAdConsumed = false;
+        _rewardClaimPending = false;
+        _rewardBusy = false;
+        _rewardStatus = null;
         _game.status.addListener(_onRunChanged);
         _game.feedbackEvents.addListener(_onFeedback);
       });
@@ -198,12 +231,137 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     widget.onHome();
   }
 
+  Future<void> _continueAfterBreak() async {
+    if (_breakBusy) return;
+    if (_game.state.phase == RunPhase.paused || !widget.rewardedEligible) {
+      _continue();
+      return;
+    }
+    _breakBusy = true;
+    try {
+      await widget.monetization?.showInterstitialAtBreak();
+      if (mounted) _continue();
+    } finally {
+      _breakBusy = false;
+    }
+  }
+
+  Future<void> _homeAfterBreak() async {
+    if (_breakBusy) return;
+    if (_game.state.phase == RunPhase.paused || !widget.rewardedEligible) {
+      _home();
+      return;
+    }
+    _breakBusy = true;
+    try {
+      await widget.monetization?.showInterstitialAtBreak();
+      if (mounted) _home();
+    } finally {
+      _breakBusy = false;
+    }
+  }
+
+  Future<void> _watchRewarded() async {
+    final monetization = widget.monetization;
+    if (_rewardBusy ||
+        _rewardAdConsumed ||
+        _save.phase != SavePhase.saved ||
+        monetization == null) {
+      return;
+    }
+    setState(() {
+      _rewardBusy = true;
+      _rewardAdConsumed = true;
+      _rewardStatus = 'Opening bonus video…';
+    });
+    unawaited(_feedback.pause());
+    final outcome = await monetization.showRewarded();
+    if (!mounted) return;
+    switch (outcome) {
+      case RewardedAdOutcome.earned:
+        _rewardClaimPending = true;
+        await _claimRewardedBonus();
+        return;
+      case RewardedAdOutcome.dismissed:
+        setState(() {
+          _rewardBusy = false;
+          _rewardStatus = 'Video closed before the reward was earned.';
+        });
+        return;
+      case RewardedAdOutcome.unavailable:
+      case RewardedAdOutcome.failed:
+        setState(() {
+          _rewardBusy = false;
+          _rewardAdConsumed = false;
+          _rewardStatus = 'Bonus video is unavailable. You can try again.';
+        });
+        return;
+    }
+  }
+
+  Future<void> _claimRewardedBonus() async {
+    final saved = _save.savedResult;
+    final claim = widget.claimRewardedBonus;
+    if (!_rewardClaimPending) return;
+    if (saved == null || claim == null) {
+      if (mounted) {
+        setState(() {
+          _rewardBusy = false;
+          _rewardStatus = 'Bonus confirmation is unavailable.';
+        });
+      }
+      return;
+    }
+    setState(() {
+      _rewardBusy = true;
+      _rewardStatus = 'Confirming bonus…';
+    });
+    try {
+      final result = await claim(saved.runId);
+      if (!mounted) return;
+      setState(() {
+        _rewardClaimPending = false;
+        _rewardBusy = false;
+        _rewardStatus = result.alreadyClaimed
+            ? 'Bonus already claimed · ${result.totalCoins} total coins'
+            : 'Bonus +${result.bonusCoins} · ${result.totalCoins} total coins';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _rewardBusy = false;
+        _rewardStatus =
+            'Bonus earned, but confirmation failed. Retry the claim.';
+      });
+    }
+  }
+
+  int get _estimatedBonus =>
+      ((_game.state.coinsCollected + 1) ~/ 2).clamp(1, 25);
+
+  String? get _rewardActionLabel {
+    if (_rewardClaimPending) return 'CLAIM BONUS';
+    final canOffer = widget.monetization?.canOfferRewarded(
+      isNormalMode: widget.rewardedEligible,
+      runSaved:
+          _game.state.phase == RunPhase.gameOver &&
+          _save.phase == SavePhase.saved,
+      coinsCollected: _game.state.coinsCollected,
+      alreadyConsumed: _rewardAdConsumed,
+    );
+    if (canOffer != true) {
+      return null;
+    }
+    return 'WATCH VIDEO · +$_estimatedBonus COINS';
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _game.pauseEngine();
     _game.status.removeListener(_onRunChanged);
     _game.feedbackEvents.removeListener(_onFeedback);
+    _save.removeListener(_onSaveChanged);
     _save.dispose();
     _game.disposeStatus();
     unawaited(_feedback.dispose());
@@ -373,7 +531,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                           ),
                         if (value.phase != RunPhase.playing)
                           ListenableBuilder(
-                            listenable: _save,
+                            listenable: Listenable.merge([
+                              _save,
+                              if (widget.monetization != null)
+                                widget.monetization!,
+                            ]),
                             builder: (context, _) => GameOverOverlay(
                               score: value.score,
                               coins: value.coins,
@@ -383,8 +545,15 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                               previousBest: widget.personalBestScore,
                               savePhase: _save.phase,
                               onRetry: _save.retry,
-                              onContinue: _continue,
-                              onHome: _home,
+                              rewardActionLabel: _rewardActionLabel,
+                              onReward: _rewardClaimPending
+                                  ? () => unawaited(_claimRewardedBonus())
+                                  : () => unawaited(_watchRewarded()),
+                              rewardBusy: _rewardBusy,
+                              rewardStatus: _rewardStatus,
+                              onContinue: () =>
+                                  unawaited(_continueAfterBreak()),
+                              onHome: () => unawaited(_homeAfterBreak()),
                             ),
                           ),
                       ],

@@ -3,28 +3,42 @@ import 'package:flutter/material.dart';
 import '../../core/widgets/sky_hopper_logo.dart';
 import '../../core/widgets/sky_page.dart';
 import 'settings_controller.dart';
+import '../ads/monetization_controller.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
     required this.controller,
     required this.onBack,
     this.onButtonFeedback,
+    this.monetization,
     super.key,
   });
 
   final SettingsController controller;
   final VoidCallback onBack;
   final VoidCallback? onButtonFeedback;
+  final MonetizationController? monetization;
 
   void _back() {
     onButtonFeedback?.call();
     onBack();
   }
 
+  Future<void> _privacy(BuildContext context) async {
+    onButtonFeedback?.call();
+    final shown = await monetization?.showPrivacyOptions() ?? false;
+    if (!context.mounted || shown) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Privacy options are unavailable right now.'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => SkyPage(
     child: AnimatedBuilder(
-      animation: controller,
+      animation: Listenable.merge([controller, ?monetization]),
       builder: (context, _) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -63,6 +77,16 @@ class SettingsScreen extends StatelessWidget {
                   value: controller.value.hapticsEnabled,
                   onChanged: controller.setHapticsEnabled,
                 ),
+                if (monetization?.privacyOptionsRequired ?? false) ...[
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.privacy_tip_outlined),
+                    title: const Text('Privacy Options'),
+                    subtitle: const Text('Review your advertising choices'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => _privacy(context),
+                  ),
+                ],
               ],
             ),
           ),

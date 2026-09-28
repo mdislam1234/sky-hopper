@@ -59,6 +59,7 @@ supabase/.temp/
 .vscode/
 **/local.properties
 **/key.properties
+**/release.properties
 *.jks
 *.keystore
 *.p12

@@ -4,6 +4,7 @@ import '../../../core/data/data_exception.dart';
 import '../../../core/data/repository_support.dart';
 import '../../game/models/game_result.dart';
 import '../../leaderboard/models/leaderboard_entry.dart';
+import '../../ads/rewarded_bonus_claim.dart';
 import '../models/progression_snapshot.dart';
 
 enum LeaderboardPeriod { daily, weekly, allTime }
@@ -78,6 +79,26 @@ class ProgressionRepository {
             params: {'p_reward_type': kind.name, 'p_reward_id': id},
           ),
         );
+      });
+
+  Future<RewardedBonusClaim> claimRewardedRunBonus(String runId) =>
+      dataOperation(() async {
+        requireUserId(_client);
+        if (!RegExp(
+          r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
+        ).hasMatch(runId)) {
+          throw const DataException(DataError.invalidInput);
+        }
+        final claim = RewardedBonusClaim.fromJson(
+          await _client.rpc(
+            'claim_rewarded_run_bonus',
+            params: {'p_run_id': runId},
+          ),
+        );
+        if (claim.runId != runId || claim.bonusCoins > 25) {
+          throw const FormatException('Rewarded bonus does not match run.');
+        }
+        return claim;
       });
 
   Future<List<LeaderboardEntry>> fetchLeaderboard(

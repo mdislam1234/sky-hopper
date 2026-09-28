@@ -12,6 +12,7 @@ dependencies:
   flame_audio: ^2.12.2
   flutter:
     sdk: flutter
+  google_mobile_ads: ^9.1.0
   shared_preferences: ^2.5.5
   supabase_flutter: ^2.17.2
 

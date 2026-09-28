@@ -16,6 +16,7 @@ class RunSaveController extends ChangeNotifier {
   final String runId;
   GameResult? _result;
   GameResult? get result => _result;
+  SavedGameResult? savedResult;
   SavePhase phase = SavePhase.notStarted;
   bool _disposed = false;
 
@@ -67,7 +68,10 @@ class RunSaveController extends ChangeNotifier {
       if (operation == null) throw StateError('Saving unavailable');
       final saved = await operation(_result!).timeout(timeout);
       saved.validateFor(_result!);
-      if (!_disposed) phase = SavePhase.saved;
+      if (!_disposed) {
+        savedResult = saved;
+        phase = SavePhase.saved;
+      }
     } catch (_) {
       if (!_disposed) phase = SavePhase.failed;
     }

@@ -23,6 +23,8 @@ import '../progression/daily_challenge_screen.dart';
 import '../progression/progression_goals_screen.dart';
 import '../progression/data/progression_repository.dart';
 import '../progression/models/progression_snapshot.dart';
+import '../ads/monetization_controller.dart';
+import '../ads/rewarded_bonus_claim.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({
@@ -32,6 +34,7 @@ class AuthGate extends StatefulWidget {
     required this.settings,
     this.feedbackFactory,
     this.progressionRepository,
+    required this.monetization,
     super.key,
   });
   final AuthController controller;
@@ -40,6 +43,7 @@ class AuthGate extends StatefulWidget {
   final SettingsController settings;
   final GameFeedbackFactory? feedbackFactory;
   final ProgressionRepository? progressionRepository;
+  final MonetizationController monetization;
   @override
   State<AuthGate> createState() => _AuthGateState();
 }
@@ -200,6 +204,9 @@ class _AuthGateState extends State<AuthGate> {
                 if (_runModeLabel != null) _dailyChallengeOpen = false;
               }),
               submitGameResult: _runPreview ? null : _saveFor(auth.profile!.id),
+              monetization: widget.monetization,
+              rewardedEligible: !_runPreview && _runModeLabel == null,
+              claimRewardedBonus: _rewardClaimFor(auth.profile!.id),
             ),
           ),
         if (_splashComplete && auth.stage == AuthStage.ready && _settingsOpen)
@@ -209,6 +216,7 @@ class _AuthGateState extends State<AuthGate> {
             child: SettingsScreen(
               controller: widget.settings,
               onBack: () => setState(() => _settingsOpen = false),
+              monetization: widget.monetization,
             ),
           ),
         if (_splashComplete &&
@@ -327,6 +335,13 @@ class _AuthGateState extends State<AuthGate> {
 
   SubmitGameResult _saveFor(String ownerId) =>
       (result) => widget.controller.submitRunFor(ownerId, result, _runSubmit);
+
+  ClaimRewardedRunBonus _rewardClaimFor(String ownerId) =>
+      (runId) => widget.controller.claimRewardedBonusFor(
+        ownerId,
+        runId,
+        widget.progressionRepository?.claimRewardedRunBonus,
+      );
 
   Future<void> _openGame(AuthController auth) async {
     if (_openingGame || auth.profile == null) return;

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../profile/models/profile.dart';
 import '../../core/data/data_exception.dart';
 import '../game/models/game_result.dart';
+import '../ads/rewarded_bonus_claim.dart';
 import '../skins/data/skin_repository.dart';
 import '../skins/models/skin.dart';
 import 'services/auth_service.dart';
@@ -295,6 +296,24 @@ class AuthController extends ChangeNotifier {
       _notify();
     }
     return saved;
+  }
+
+  Future<RewardedBonusClaim> claimRewardedBonusFor(
+    String ownerId,
+    String runId,
+    ClaimRewardedRunBonus? claim,
+  ) async {
+    requireOwner(ownerId);
+    if (claim == null) throw const DataException(DataError.unavailable);
+    final sessionGeneration = _generation;
+    final result = await claim(runId).timeout(const Duration(seconds: 15));
+    if (result.runId != runId) {
+      throw const FormatException('Rewarded bonus does not match run.');
+    }
+    if (sessionGeneration == _generation && isCurrentOwner(ownerId)) {
+      await refreshConfirmedProfile(ownerId);
+    }
+    return result;
   }
 
   Future<void> signIn() async {

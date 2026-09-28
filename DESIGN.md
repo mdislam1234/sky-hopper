@@ -91,6 +91,10 @@ Daily challenge cards state the UTC date, shared-course rule, ranked attempts re
 
 Settings uses adaptive switches with a title, a short consequence, and a supporting icon. Pause and Game Over use the same centered overlay pattern and keep Restart/Resume and Home reachable. Save errors remain inline with an explicit retry action.
 
+Android Settings may add Google's `Privacy Options` row only when UMP requires the entry point. It follows the existing ListTile grammar and opens the provider-owned form; no custom consent card or disable-ads switch belongs here.
+
+At normal-mode Game Over, the optional outlined `WATCH VIDEO · +N COINS` action appears only after the run is server-saved and an ad is ready. It follows result and save status, while the filled Restart and text Home actions remain visible and usable. Claiming uses plain progress and server-confirmed success/retry text. Advertising never uses the gold primary treatment, countdown pressure, false scarcity, or a control that resembles gameplay rewards. Daily Challenge, active gameplay, pause, Login, and Web contain no ad actions.
+
 ### Iconography
 
 Use rounded Material icons at their standard optical weight. Icons reinforce familiar actions and hazards but never replace essential labels or visible lightning warnings.

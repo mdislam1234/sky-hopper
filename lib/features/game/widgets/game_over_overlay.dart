@@ -15,6 +15,10 @@ class GameOverOverlay extends StatelessWidget {
     this.causeMessage,
     this.newPersonalBest = false,
     this.previousBest = 0,
+    this.rewardActionLabel,
+    this.onReward,
+    this.rewardBusy = false,
+    this.rewardStatus,
     super.key,
   });
   final int score;
@@ -24,6 +28,10 @@ class GameOverOverlay extends StatelessWidget {
   final String? causeMessage;
   final bool newPersonalBest;
   final int previousBest;
+  final String? rewardActionLabel;
+  final VoidCallback? onReward;
+  final bool rewardBusy;
+  final String? rewardStatus;
   final bool paused;
   final VoidCallback onContinue;
   final VoidCallback onHome;
@@ -96,6 +104,26 @@ class GameOverOverlay extends StatelessWidget {
                       onPressed: onRetry,
                       child: const Text('RETRY SAVE'),
                     ),
+                  if (rewardStatus case final status?) ...[
+                    const SizedBox(height: 8),
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(status, textAlign: TextAlign.center),
+                    ),
+                  ],
+                  if (rewardActionLabel case final label?) ...[
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: rewardBusy ? null : onReward,
+                      icon: rewardBusy
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.ondemand_video_rounded),
+                      label: Text(label),
+                    ),
+                  ],
                 ],
                 const SizedBox(height: 16),
                 FilledButton.icon(
