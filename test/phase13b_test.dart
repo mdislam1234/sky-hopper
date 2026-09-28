@@ -38,11 +38,14 @@ void main() {
     late String gradle;
     late String ignore;
     late String template;
+    late String mobileAdsService;
 
     setUpAll(() {
       gradle = File('android/app/build.gradle.kts').readAsStringSync();
       ignore = File('.gitignore').readAsStringSync();
       template = File('android/admob_config.local.json.example')
+          .readAsStringSync();
+      mobileAdsService = File('lib/features/ads/google_mobile_ads_service.dart')
           .readAsStringSync();
     });
 
@@ -77,18 +80,38 @@ void main() {
       },
     );
 
-    test('debug manifest remains pinned to the official sample app ID', () {
+    test('debug manifest requires the ignored real app ID', () {
+      expect(gradle, contains('JsonSlurper().parse(localAdMobConfigFile)'));
+      expect(gradle, contains('developmentAndroidBuildRequested'));
+      expect(gradle, contains('debugAppMatch == null'));
       expect(
         gradle,
-        contains(
-          'val testAdMobAppId = '
-          '"ca-app-pub-3940256099942544~3347511713"',
-        ),
+        contains('debugAppMatch.groupValues[1] == googleSamplePublisherId'),
       );
       expect(
         gradle,
-        contains('manifestPlaceholders["adMobAppId"] = testAdMobAppId'),
+        contains('manifestPlaceholders["adMobAppId"] = debugAdMobAppId'),
       );
+      expect(gradle, isNot(contains('3347511713')));
+    });
+
+    test('UMP test device and geography override are debug-only', () {
+      expect(mobileAdsService, contains('if (!kDebugMode)'));
+      expect(mobileAdsService, contains('CB2CF1764252D069F3F371B3CA255E59'));
+      expect(mobileAdsService, contains('UMP_DEBUG_FORCE_EEA'));
+      expect(mobileAdsService, contains('DebugGeography.debugGeographyEea'));
+      expect(
+        mobileAdsService,
+        contains('DebugGeography.debugGeographyDisabled'),
+      );
+    });
+
+    test('UMP errors log sanitized code and message only in debug', () {
+      expect(mobileAdsService, contains('errorCode=\${error.errorCode}'));
+      expect(mobileAdsService, contains('message="\$message"'));
+      expect(mobileAdsService, contains('[redacted-ad-id]'));
+      expect(mobileAdsService, contains('[redacted-url]'));
+      expect(mobileAdsService, contains('[redacted-token]'));
     });
 
     test('publisher file is separate ignored public-hosting input', () {

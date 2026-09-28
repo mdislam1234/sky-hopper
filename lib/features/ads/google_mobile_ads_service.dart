@@ -60,28 +60,42 @@ class GoogleMobileAdsService extends AdService {
     if (_disposed) return false;
     final update = Completer<bool>();
     ConsentInformation.instance.requestConsentInfoUpdate(
-      ConsentRequestParameters(),
+      _consentRequestParameters(),
       () {
         _debugAds('consent info update succeeded');
         update.complete(true);
       },
-      (_) {
-        _debugAds('consent info update failed');
+      (error) {
+        _debugConsentError('consent info update failed', error);
         update.complete(false);
       },
     );
     return update.future;
   }
 
+  ConsentRequestParameters _consentRequestParameters() {
+    if (!kDebugMode) return ConsentRequestParameters();
+    const forceEea = bool.fromEnvironment('UMP_DEBUG_FORCE_EEA');
+    _debugAds('UMP debug device registered forceEea=$forceEea');
+    return ConsentRequestParameters(
+      consentDebugSettings: ConsentDebugSettings(
+        testIdentifiers: const ['CB2CF1764252D069F3F371B3CA255E59'],
+        debugGeography: forceEea
+            ? DebugGeography.debugGeographyEea
+            : DebugGeography.debugGeographyDisabled,
+      ),
+    );
+  }
+
   Future<void> _loadConsentFormIfRequired() async {
     if (_disposed) return;
     try {
       await ConsentForm.loadAndShowConsentFormIfRequired((error) {
-        _debugAds(
-          error == null
-              ? 'consent form flow completed'
-              : 'consent form flow failed',
-        );
+        if (error == null) {
+          _debugAds('consent form flow completed');
+        } else {
+          _debugConsentError('consent form flow failed', error);
+        }
       });
     } catch (_) {
       _debugAds('consent form flow threw an exception');
@@ -299,6 +313,9 @@ class GoogleMobileAdsService extends AdService {
     if (!_privacyOptionsRequired || _disposed) return false;
     final result = Completer<bool>();
     await ConsentForm.showPrivacyOptionsForm((error) {
+      if (error != null) {
+        _debugConsentError('privacy options form failed', error);
+      }
       result.complete(error == null);
     });
     final shown = await result.future;
@@ -331,6 +348,25 @@ class GoogleMobileAdsService extends AdService {
 
   void _debugAds(String message) {
     if (kDebugMode) debugPrint('[Ads] $message');
+  }
+
+  void _debugConsentError(String event, FormError error) {
+    if (!kDebugMode) return;
+    final singleLine = error.message.replaceAll(RegExp(r'[\r\n]+'), ' ').trim();
+    final redacted = singleLine
+        .replaceAll(
+          RegExp(r'ca-app-pub-[0-9]{16}[~/][0-9]{10}'),
+          '[redacted-ad-id]',
+        )
+        .replaceAll(RegExp(r'https?://\S+'), '[redacted-url]')
+        .replaceAll(
+          RegExp(r'[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}'),
+          '[redacted-token]',
+        );
+    final message = redacted.length <= 240
+        ? redacted
+        : '${redacted.substring(0, 240)}…';
+    _debugAds('$event errorCode=${error.errorCode} message="$message"');
   }
 
   @override

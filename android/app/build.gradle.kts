@@ -1,6 +1,7 @@
 import java.util.Properties
 import java.util.Base64
 import java.nio.charset.StandardCharsets
+import groovy.json.JsonSlurper
 
 plugins {
     id("com.android.application")
@@ -10,6 +11,10 @@ plugins {
 
 val releaseRequested = gradle.startParameter.taskNames.any {
     it.contains("release", ignoreCase = true)
+}
+val developmentAndroidBuildRequested = gradle.startParameter.taskNames.any {
+    it.contains("debug", ignoreCase = true) ||
+        it.contains("profile", ignoreCase = true)
 }
 val keyPropertiesFile = rootProject.file("key.properties")
 val keyProperties = Properties().apply {
@@ -29,13 +34,44 @@ fun decodeDartDefines(encodedDefines: String?): Map<String, String> {
 }
 
 val dartDefines = decodeDartDefines(project.findProperty("dart-defines")?.toString())
-val testAdMobAppId = "ca-app-pub-3940256099942544~3347511713"
 val googleSamplePublisherId = "3940256099942544"
 val releaseAdMobAppId = dartDefines["ADMOB_ANDROID_APP_ID"].orEmpty().trim()
 val releaseRewardedAdUnitId = dartDefines["ADMOB_REWARDED_AD_UNIT_ID"].orEmpty().trim()
 val releaseInterstitialAdUnitId = dartDefines["ADMOB_INTERSTITIAL_AD_UNIT_ID"].orEmpty().trim()
 val appIdPattern = Regex("^ca-app-pub-([0-9]{16})~[0-9]{10}$")
 val adUnitIdPattern = Regex("^ca-app-pub-([0-9]{16})/[0-9]{10}$")
+val localAdMobConfigFile = rootProject.file("admob_config.local.json")
+val debugAdMobAppId = if (developmentAndroidBuildRequested) {
+    if (!localAdMobConfigFile.exists()) {
+        throw GradleException(
+            "Missing debug AdMob App ID configuration. Copy " +
+                "android/admob_config.local.json.example to the ignored " +
+                "android/admob_config.local.json and set ADMOB_ANDROID_APP_ID."
+        )
+    }
+    val localConfig = runCatching {
+        JsonSlurper().parse(localAdMobConfigFile) as? Map<*, *>
+    }.getOrElse {
+        throw GradleException(
+            "Malformed android/admob_config.local.json. Expected a JSON object."
+        )
+    }
+    localConfig?.get("ADMOB_ANDROID_APP_ID")?.toString()?.trim().orEmpty()
+} else {
+    ""
+}
+if (developmentAndroidBuildRequested) {
+    val debugAppMatch = appIdPattern.matchEntire(debugAdMobAppId)
+    if (debugAppMatch == null ||
+        debugAppMatch.groupValues[1] == googleSamplePublisherId
+    ) {
+        throw GradleException(
+            "Debug Android builds require the real Sky Hopper AdMob App ID in " +
+                "android/admob_config.local.json. Google sample and malformed App IDs " +
+                "are rejected."
+        )
+    }
+}
 val signingFields = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
 val releaseSigningConfigured = keyPropertiesFile.exists() &&
     signingFields.all { !keyProperties.getProperty(it).isNullOrBlank() }
@@ -110,7 +146,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["adMobAppId"] = testAdMobAppId
+        manifestPlaceholders["adMobAppId"] = debugAdMobAppId
     }
 
     signingConfigs {

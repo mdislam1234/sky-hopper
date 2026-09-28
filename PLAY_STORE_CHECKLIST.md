@@ -53,7 +53,7 @@ Use a debug/internal build with Google's official **Test Ad** identifiers. Never
 
 - [ ] `flutter analyze` and `flutter test` pass from a clean checkout.
 - [ ] `flutter build web` passes and `/privacy/` is present in `build/web`.
-- [ ] `flutter build apk --debug` passes and the merged manifest contains the official sample app ID only for debug verification.
+- [ ] `flutter build apk --debug` passes using the ignored real App ID for UMP, while compiled rewarded/interstitial units remain Google's official test IDs.
 - [ ] Secret scan is clean and ignored private configuration is absent from Git.
 - [ ] `flutter build appbundle --release --dart-define-from-file=<private-file>` succeeds with production public configuration and release signing.
 - [ ] Inspect the signed AAB/package name/version/manifest and upload it to an internal Play track before any wider release.
