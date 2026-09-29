@@ -283,6 +283,20 @@ void main() {
       },
     );
 
+    test('release keeps the Room database constructor used by WorkManager', () {
+      final gradle = File('android/app/build.gradle.kts').readAsStringSync();
+      final proguard = File('android/app/proguard-rules.pro')
+          .readAsStringSync();
+      final pubspec = File('pubspec.yaml').readAsStringSync();
+      expect(gradle, contains('proguardFiles("proguard-rules.pro")'));
+      expect(
+        proguard,
+        contains('-keep class * extends androidx.room.RoomDatabase'),
+      );
+      expect(proguard, contains('<init>();'));
+      expect(pubspec, contains('version: 1.0.1+2'));
+    });
+
     test('privacy page and unpublished app-ads template exist', () {
       final privacy = File('web/privacy/index.html').readAsStringSync();
       final template = File('docs/app-ads.txt.example').readAsStringSync();

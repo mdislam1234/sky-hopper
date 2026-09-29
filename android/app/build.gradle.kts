@@ -164,6 +164,7 @@ android {
         release {
             manifestPlaceholders["adMobAppId"] = releaseAdMobAppId
             signingConfig = signingConfigs.findByName("release")
+            proguardFiles("proguard-rules.pro")
         }
     }
 }
