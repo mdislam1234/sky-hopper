@@ -34,7 +34,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.skyhopper.game" android:host="login-callback" android:pathPrefix="/" />
+                <data android:scheme="com.azitechstudio.skyhopper" android:host="login-callback" android:pathPrefix="/" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

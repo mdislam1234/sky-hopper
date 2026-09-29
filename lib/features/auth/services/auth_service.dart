@@ -16,7 +16,7 @@ abstract class AuthService {
 }
 
 String oauthRedirect({required bool isWeb, required Uri base}) =>
-    isWeb ? '${base.origin}/' : 'com.skyhopper.game://login-callback/';
+    isWeb ? '${base.origin}/' : 'com.azitechstudio.skyhopper://login-callback/';
 
 class SupabaseAuthService implements AuthService {
   SupabaseAuthService(this.client);

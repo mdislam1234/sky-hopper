@@ -93,7 +93,7 @@ void main() {
     );
     expect(
       oauthRedirect(isWeb: false, base: Uri.parse('file:///app')),
-      'com.skyhopper.game://login-callback/',
+      'com.azitechstudio.skyhopper://login-callback/',
     );
   });
 

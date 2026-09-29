@@ -125,7 +125,7 @@ if (releaseRequested) {
 }
 
 android {
-    namespace = "com.skyhopper.game"
+    namespace = "com.azitechstudio.skyhopper"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -135,7 +135,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.skyhopper.game"
+        applicationId = "com.azitechstudio.skyhopper"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

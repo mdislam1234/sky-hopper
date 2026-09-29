@@ -1,4 +1,4 @@
-package com.skyhopper.game
+package com.azitechstudio.skyhopper
 
 import io.flutter.embedding.android.FlutterActivity
 

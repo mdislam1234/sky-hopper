@@ -12,7 +12,7 @@ Splash resolves authentication before Login or Home. PLAY preserves the endless 
 - Flutter 3.47.5 / Dart 3.13.4
 - Flame 1.38.2; supabase_flutter 2.17.2; google_mobile_ads 9.1.0 (see pubspec.lock)
 - SDK: `C:\Users\Admin\development\flutter`
-- Android application ID: `com.skyhopper.game`
+- Android application ID: `com.azitechstudio.skyhopper`
 - Dart package: `sky_hopper`; display name: Sky Hopper
 
 ## Supabase database
@@ -166,7 +166,7 @@ Provider settings are not exposed by this MCP connection. Real Web Google login 
    `https://ittdhvlfrrjnsvdfpznl.supabase.co/auth/v1/callback`.
 4. In Supabase Dashboard → Authentication → Providers → Google, enable Google and enter the Web Client ID and Client Secret. The secret belongs only in those dashboards, never Flutter, this repository, or chat.
 5. If the consent app is in Testing mode, configure the Google account used for testing as an allowed test user where required.
-6. In Supabase Authentication → URL Configuration, set the development Site URL to `http://localhost:3000` and allow both `http://localhost:3000/` and `com.skyhopper.game://login-callback/`.
+6. In Supabase Authentication → URL Configuration, set the development Site URL to `http://localhost:3000` and allow both `http://localhost:3000/` and `com.azitechstudio.skyhopper://login-callback/`.
 7. Obtain the project's Publishable Key from the dashboard and supply it to Flutter via Dart defines. Do not commit it.
 8. Production web origins and exact redirects must be added during deployment. No production URL or wildcard pattern has been guessed.
 
@@ -179,7 +179,7 @@ Current official references consulted via MCP:
 Google returns to the Supabase callback first. Supabase then returns to the app's allowed redirect.
 
 - **Web:** `Uri.base.origin` plus a trailing slash; localhost is not hard-coded in production logic. Deploy the app at the origin root and allow the exact production origin in Supabase when ready.
-- **Android:** `com.skyhopper.game://login-callback/`. The manifest adds a VIEW/DEFAULT/BROWSABLE intent filter with this scheme/host, preserving the launcher and application ID. Flutter's built-in deep-link handler is disabled so supabase_flutter's app_links handler receives the callback.
+- **Android:** `com.azitechstudio.skyhopper://login-callback/`. The manifest adds a VIEW/DEFAULT/BROWSABLE intent filter with this scheme/host, preserving the launcher and application ID. Flutter's built-in deep-link handler is disabled so supabase_flutter's app_links handler receives the callback.
 - SDK callback handling performs the PKCE code exchange. The app never logs tokens, reads provider tokens into UI, or handles Google passwords.
 
 PowerShell local Web launch (replace the placeholder before running):
@@ -725,7 +725,7 @@ Settings shows Google's **Privacy Options** only when UMP reports that an entry 
 
 ### Android release setup
 
-The Android application ID remains `com.skyhopper.game`. `compileSdk` and `targetSdk` are 36; the current Flutter toolchain resolves `flutter.minSdkVersion` to API 24, which is compatible with this Google Mobile Ads configuration. Debug builds use the official sample AdMob app ID. Release tasks fail clearly unless both private files are configured:
+The Android application ID is `com.azitechstudio.skyhopper`. `compileSdk` and `targetSdk` are 36; the current Flutter toolchain resolves `flutter.minSdkVersion` to API 24, which is compatible with this Google Mobile Ads configuration. Debug builds use the official sample AdMob app ID. Release tasks fail clearly unless both private files are configured:
 
 1. Fill the existing ignored `android/admob_config.local.json` using `android/admob_config.local.json.example` as the shape. Enter `ADMOB_ANDROID_APP_ID`, `ADMOB_REWARDED_AD_UNIT_ID`, and `ADMOB_INTERSTITIAL_AD_UNIT_ID`; never pass the publisher ID here.
 2. Copy `android/key.properties.example` to ignored `android/key.properties`, point it at the private Play upload keystore, and fill the passwords locally.
