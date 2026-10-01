@@ -94,7 +94,9 @@ class _PreviewIdentity implements AuthService {
   @override
   Future<void> restoreSession() async {}
   @override
-  Future<bool> signInWithGoogle() async => false;
+  Future<void> signInAnonymously() async {}
+  @override
+  Future<bool> linkGoogleIdentity() async => false;
   @override
   Future<void> signOut() async {}
 }

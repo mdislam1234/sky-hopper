@@ -112,6 +112,8 @@ class _AuthGateState extends State<AuthGate> {
       route = AppRoutes.home;
       screen = HomeScreen(
         profile: auth.profile,
+        playerName: auth.playerName,
+        isGuest: auth.isGuest,
         onPlay: auth.profile == null ? null : () => unawaited(_openGame(auth)),
         onLeaderboard: auth.profile == null
             ? null
@@ -133,8 +135,7 @@ class _AuthGateState extends State<AuthGate> {
             ? null
             : () => setState(() => _achievementsOpen = true),
       );
-    } else if (auth.stage == AuthStage.signedOut ||
-        auth.stage == AuthStage.unconfigured) {
+    } else if (auth.stage == AuthStage.unconfigured) {
       route = AppRoutes.login;
       screen = LoginScreen(controller: auth);
     } else {

@@ -12,7 +12,6 @@ import 'services/auth_service.dart';
 
 enum AuthStage {
   resolving,
-  signedOut,
   loadingProfile,
   ready,
   profileError,
@@ -40,6 +39,24 @@ class AuthController extends ChangeNotifier {
     return SkinAppearance.defaultSkin;
   }
 
+  bool get isGuest => user == null || user!.isAnonymous;
+
+  String get playerName {
+    if (isGuest) return 'Guest Player';
+    final profileName = profile?.displayName?.trim();
+    if (profileName != null &&
+        profileName.isNotEmpty &&
+        profileName != 'Guest Player') {
+      return profileName;
+    }
+    final identityName = user?.displayName?.trim();
+    return identityName == null || identityName.isEmpty
+        ? 'Player'
+        : identityName;
+  }
+
+  String? get avatarUrl => profile?.avatarUrl ?? user?.avatarUrl;
+
   AuthStage stage = AuthStage.resolving;
   AuthIdentity? user;
   Profile? profile;
@@ -64,28 +81,41 @@ class AuthController extends ChangeNotifier {
     }
     _subscription = service!.changes.listen(
       (_) {
-        if (!_restoring) _resolve();
+        if (_restoring) return;
+        if (service!.currentUser == null) {
+          unawaited(retrySession());
+        } else {
+          unawaited(_resolve());
+        }
       },
       onError: (Object error) {
         if (_disposed) return;
         signingIn = false;
         _loginTimer?.cancel();
-        message = 'Sign-in could not be completed. Please try again.';
-        _resolve();
+        message = 'Account connection was interrupted. Please try again.';
+        if (stage != AuthStage.ready) stage = AuthStage.sessionError;
+        _notify();
       },
     );
     await retrySession();
   }
 
   Future<void> retrySession() async {
+    if (_restoring || service == null) return;
     _restoring = true;
     stage = AuthStage.resolving;
     message = null;
     _notify();
     try {
       await service!.restoreSession().timeout(const Duration(seconds: 20));
+      if (service!.currentUser == null) {
+        await service!.signInAnonymously().timeout(const Duration(seconds: 20));
+      }
+      if (service!.currentUser == null) {
+        throw StateError('Guest session was not created.');
+      }
       _restoring = false;
-      if (!_disposed) await _resolve();
+      if (!_disposed) await _resolve(force: true);
     } catch (_) {
       _restoring = false;
       if (_disposed || stage == AuthStage.ready) return;
@@ -93,8 +123,7 @@ class AuthController extends ChangeNotifier {
       user = null;
       profile = null;
       stage = AuthStage.sessionError;
-      message =
-          'Unable to restore your session. Check your connection and retry.';
+      message = 'Guest play could not start. Check your connection and retry.';
       _notify();
     }
   }
@@ -104,7 +133,24 @@ class AuthController extends ChangeNotifier {
     final next = service!.currentUser;
     if (!force &&
         next?.id == user?.id &&
+        next?.isAnonymous == user?.isAnonymous &&
+        next?.email == user?.email &&
+        next?.displayName == user?.displayName &&
+        next?.avatarUrl == user?.avatarUrl &&
         (stage == AuthStage.ready || stage == AuthStage.loadingProfile)) {
+      return;
+    }
+    if (!force &&
+        next != null &&
+        next.id == user?.id &&
+        profile?.id == next.id &&
+        stage == AuthStage.ready) {
+      user = next;
+      signingIn = false;
+      _loginAttempt++;
+      _loginTimer?.cancel();
+      message = null;
+      _notify();
       return;
     }
     final generation = ++_generation;
@@ -116,7 +162,8 @@ class AuthController extends ChangeNotifier {
     _loginAttempt++;
     _loginTimer?.cancel();
     if (next == null) {
-      stage = AuthStage.signedOut;
+      stage = AuthStage.sessionError;
+      message = 'Guest play could not start. Please retry.';
       _notify();
       return;
     }
@@ -128,7 +175,7 @@ class AuthController extends ChangeNotifier {
       if (_disposed || generation != _generation) return;
       if (loaded == null || loaded.id != next.id) {
         stage = AuthStage.profileError;
-        message = 'Your profile is not available yet. Retry or sign out and contact support.';
+        message = 'Your player profile is not available yet. Please retry.';
       } else {
         profile = loaded;
         stage = AuthStage.ready;
@@ -317,7 +364,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> signIn() async {
-    if (signingIn || service == null) return;
+    if (signingIn || service == null || !isGuest || user == null) return;
     signingIn = true;
     final attempt = ++_loginAttempt;
     message = null;
@@ -325,7 +372,7 @@ class AuthController extends ChangeNotifier {
     // OAuth completion arrives via auth changes, not the browser-launch Future.
     _loginTimer = Timer(const Duration(seconds: 60), cancelPendingSignIn);
     try {
-      final launched = await service!.signInWithGoogle().timeout(
+      final launched = await service!.linkGoogleIdentity().timeout(
         const Duration(seconds: 15),
       );
       if (!launched) throw StateError('Not launched');
@@ -349,23 +396,40 @@ class AuthController extends ChangeNotifier {
 
   Future<void> signOut() async {
     if (signingOut || service == null) return;
+    final previousProfile = profile;
     signingOut = true;
+    _restoring = true;
     message = null;
     _notify();
     try {
       await service!.signOut().timeout(const Duration(seconds: 15));
       if (_disposed) return;
-      _generation++;
-      _loginTimer?.cancel();
-      user = null;
-      profile = null;
-      stage = AuthStage.signedOut;
-      signingIn = false;
+      await service!.signInAnonymously().timeout(const Duration(seconds: 20));
+      if (service!.currentUser == null) {
+        throw StateError('Guest session was not created.');
+      }
+      _restoring = false;
+      await _resolve(force: true);
     } catch (_) {
       if (!_disposed) {
-        message = 'Sign out failed. Please check your connection and retry.';
+        _restoring = false;
+        final current = service!.currentUser;
+        if (current != null && previousProfile?.id == current.id) {
+          user = current;
+          profile = previousProfile;
+          stage = AuthStage.ready;
+          message = 'Sign out failed. Please check your connection and retry.';
+        } else {
+          _generation++;
+          user = null;
+          profile = null;
+          catalog = const [];
+          stage = AuthStage.sessionError;
+          message = 'You are signed out, but guest play could not start. Please retry.';
+        }
       }
     } finally {
+      _restoring = false;
       signingOut = false;
       _notify();
     }

@@ -2,16 +2,26 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthIdentity {
-  const AuthIdentity({required this.id, this.email});
+  const AuthIdentity({
+    required this.id,
+    this.email,
+    this.displayName,
+    this.avatarUrl,
+    this.isAnonymous = false,
+  });
   final String id;
   final String? email;
+  final String? displayName;
+  final String? avatarUrl;
+  final bool isAnonymous;
 }
 
 abstract class AuthService {
   AuthIdentity? get currentUser;
   Stream<void> get changes;
   Future<void> restoreSession();
-  Future<bool> signInWithGoogle();
+  Future<void> signInAnonymously();
+  Future<bool> linkGoogleIdentity();
   Future<void> signOut();
 }
 
@@ -27,7 +37,30 @@ class SupabaseAuthService implements AuthService {
   AuthIdentity? get currentUser {
     final session = currentSession;
     if (session == null || session.isExpired) return null;
-    return AuthIdentity(id: session.user.id, email: session.user.email);
+    final authUser = session.user;
+    final metadata = authUser.userMetadata ?? const <String, dynamic>{};
+    Map<String, dynamic>? googleData;
+    for (final identity in authUser.identities ?? const <UserIdentity>[]) {
+      if (identity.provider == 'google') {
+        googleData = identity.identityData;
+        break;
+      }
+    }
+    return AuthIdentity(
+      id: authUser.id,
+      email: authUser.email,
+      displayName:
+          _metadataText(metadata, 'full_name') ??
+          _metadataText(metadata, 'name') ??
+          _metadataText(googleData, 'full_name') ??
+          _metadataText(googleData, 'name'),
+      avatarUrl:
+          _metadataText(metadata, 'avatar_url') ??
+          _metadataText(metadata, 'picture') ??
+          _metadataText(googleData, 'avatar_url') ??
+          _metadataText(googleData, 'picture'),
+      isAnonymous: authUser.isAnonymous,
+    );
   }
 
   @override
@@ -41,7 +74,12 @@ class SupabaseAuthService implements AuthService {
   }
 
   @override
-  Future<bool> signInWithGoogle() => client.auth.signInWithOAuth(
+  Future<void> signInAnonymously() async {
+    await client.auth.signInAnonymously();
+  }
+
+  @override
+  Future<bool> linkGoogleIdentity() => client.auth.linkIdentity(
     OAuthProvider.google,
     redirectTo: oauthRedirect(isWeb: kIsWeb, base: Uri.base),
     authScreenLaunchMode: kIsWeb
@@ -51,4 +89,10 @@ class SupabaseAuthService implements AuthService {
 
   @override
   Future<void> signOut() => client.auth.signOut();
+}
+
+String? _metadataText(Map<String, dynamic>? values, String key) {
+  final value = values?[key];
+  if (value is! String || value.trim().isEmpty) return null;
+  return value.trim();
 }

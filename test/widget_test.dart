@@ -65,19 +65,27 @@ void main() {
       for (final text in [
         'SKY HOPPER',
         'PLAY',
+        'DAILY CHALLENGE',
+        'MISSIONS',
+        'ACHIEVEMENTS',
         'LEADERBOARD',
         'SKINS',
         'PROFILE',
         'Guest Player',
-        'Coins: 0',
       ]) {
         expect(find.text(text), findsOneWidget);
       }
+      expect(find.byKey(const ValueKey('home-action-grid')), findsOneWidget);
+      expect(find.byTooltip('Settings'), findsOneWidget);
+      expect(find.text('Coins: 0'), findsOneWidget);
       const messages = {
-        'PLAY': 'Game mode coming in the next development step.',
-        'LEADERBOARD': 'Leaderboard will be added later.',
-        'SKINS': 'Skins will be added later.',
-        'PROFILE': 'Profile will be added later.',
+        'PLAY': 'Game mode is unavailable.',
+        'DAILY CHALLENGE': 'Daily Challenge requires a connection.',
+        'MISSIONS': 'Daily Missions require a connection.',
+        'ACHIEVEMENTS': 'Achievements require a connection.',
+        'LEADERBOARD': 'Leaderboard is unavailable.',
+        'SKINS': 'Skins are unavailable.',
+        'PROFILE': 'Profile is unavailable.',
       };
       for (final entry in messages.entries) {
         await tester.ensureVisible(find.text(entry.key));
@@ -109,6 +117,45 @@ void main() {
           .removeCurrentSnackBar();
       await tester.pumpAndSettle();
     }
+  });
+
+  testWidgets('Home routes every compact action to its existing callback', (
+    tester,
+  ) async {
+    setViewport(tester, const Size(390, 844));
+    final opened = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          playerName: 'Cloud Jumper',
+          onPlay: () => opened.add('play'),
+          onDailyChallenge: () => opened.add('daily'),
+          onDailyMissions: () => opened.add('missions'),
+          onAchievements: () => opened.add('achievements'),
+          onLeaderboard: () => opened.add('leaderboard'),
+          onSkins: () => opened.add('skins'),
+          onProfile: () => opened.add('profile'),
+          onSettings: () => opened.add('settings'),
+        ),
+      ),
+    );
+    for (final entry in {
+      'PLAY': 'play',
+      'DAILY CHALLENGE': 'daily',
+      'MISSIONS': 'missions',
+      'ACHIEVEMENTS': 'achievements',
+      'LEADERBOARD': 'leaderboard',
+      'SKINS': 'skins',
+      'PROFILE': 'profile',
+    }.entries) {
+      await tester.ensureVisible(find.text(entry.key));
+      await tester.tap(find.text(entry.key));
+      expect(opened.last, entry.value);
+    }
+    await tester.tap(find.byKey(const ValueKey('home-settings')));
+    expect(opened.last, 'settings');
+    expect(find.text('Cloud Jumper'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Rapid PLAY taps replace feedback without stacking routes', (

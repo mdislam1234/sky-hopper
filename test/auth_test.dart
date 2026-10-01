@@ -6,58 +6,94 @@ import 'package:sky_hopper/app.dart';
 import 'package:sky_hopper/features/auth/auth_controller.dart';
 import 'package:sky_hopper/features/auth/login_screen.dart';
 import 'package:sky_hopper/features/auth/services/auth_service.dart';
+import 'package:sky_hopper/features/game/widgets/game_screen.dart';
 import 'package:sky_hopper/features/home/home_screen.dart';
 import 'package:sky_hopper/features/profile/models/profile.dart';
 import 'package:sky_hopper/features/profile/profile_screen.dart';
 
 class FakeAuthService implements AuthService {
   FakeAuthService({this.currentUser});
+
   @override
   AuthIdentity? currentUser;
   final events = StreamController<void>.broadcast(sync: true);
-  int launches = 0;
-  bool launchFails = false;
+  int guestCreates = 0;
+  int linkLaunches = 0;
+  int signOuts = 0;
+  bool guestCreateFails = false;
+  bool linkLaunchFails = false;
   bool logoutFails = false;
-  Completer<bool>? launch;
+  Completer<bool>? linkLaunch;
   Completer<void>? restoration;
+
   @override
   Stream<void> get changes => events.stream;
+
   @override
   Future<void> restoreSession() async {
     await restoration?.future;
   }
 
   @override
-  Future<bool> signInWithGoogle() async {
-    launches++;
-    if (launchFails) throw Exception('private provider response');
-    return launch == null ? true : await launch!.future;
+  Future<void> signInAnonymously() async {
+    guestCreates++;
+    if (guestCreateFails) throw Exception('private anonymous response');
+    currentUser ??= const AuthIdentity(id: 'guest-user', isAnonymous: true);
+    events.add(null);
   }
 
-  void signInEvent() {
-    currentUser = const AuthIdentity(
-      id: 'test-user',
+  @override
+  Future<bool> linkGoogleIdentity() async {
+    linkLaunches++;
+    if (linkLaunchFails) throw Exception('private provider response');
+    return linkLaunch == null ? true : await linkLaunch!.future;
+  }
+
+  void useGoogleSession({String id = 'test-user'}) {
+    currentUser = AuthIdentity(
+      id: id,
       email: 'player@example.test',
+      displayName: 'Cloud Jumper',
+    );
+    events.add(null);
+  }
+
+  void signInEvent() => useGoogleSession();
+
+  void useGuestSession({String id = 'guest-user'}) {
+    currentUser = AuthIdentity(id: id, isAnonymous: true);
+    events.add(null);
+  }
+
+  void completeGoogleLink() {
+    final id = currentUser!.id;
+    currentUser = AuthIdentity(
+      id: id,
+      email: 'player@example.test',
+      displayName: 'Cloud Jumper',
     );
     events.add(null);
   }
 
   @override
   Future<void> signOut() async {
+    signOuts++;
     if (logoutFails) throw Exception('private failure');
     currentUser = null;
     events.add(null);
   }
 }
 
-final testProfile = Profile(
-  id: 'test-user',
-  displayName: 'Cloud Jumper',
+Profile profileFor(String id, {String? displayName}) => Profile(
+  id: id,
+  displayName: displayName,
   totalCoins: 42,
   selectedSkin: 'default',
   createdAt: DateTime.utc(2026),
   updatedAt: DateTime.utc(2026),
 );
+
+final testProfile = profileFor('test-user', displayName: 'Cloud Jumper');
 
 AuthController createAuth(
   FakeAuthService service, {
@@ -65,7 +101,15 @@ AuthController createAuth(
 }) {
   final controller = AuthController(
     service: service,
-    loadProfile: loader ?? () async => testProfile,
+    loadProfile:
+        loader ??
+        () async {
+          final identity = service.currentUser!;
+          return profileFor(
+            identity.id,
+            displayName: identity.isAnonymous ? null : 'Cloud Jumper',
+          );
+        },
   );
   addTearDown(controller.dispose);
   addTearDown(service.events.close);
@@ -97,70 +141,120 @@ void main() {
     );
   });
 
-  testWidgets('Signed-out startup shows Google Login, never Home', (
+  testWidgets('First launch creates one guest session and reaches Home', (
     tester,
   ) async {
-    final auth = createAuth(FakeAuthService());
+    final service = FakeAuthService();
+    final auth = createAuth(service);
     await launchApp(tester, auth);
-    expect(find.byType(LoginScreen), findsOneWidget);
-    expect(find.text('Continue with Google'), findsOneWidget);
-    expect(find.byType(HomeScreen), findsNothing);
+    expect(service.guestCreates, 1);
+    expect(auth.user?.id, 'guest-user');
+    expect(auth.isGuest, isTrue);
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.text('Guest Player'), findsOneWidget);
+    expect(find.byType(LoginScreen), findsNothing);
   });
 
-  testWidgets('Unconfigured startup visibly disables authentication', (
+  testWidgets('Existing Google session is preserved without guest creation', (
+    tester,
+  ) async {
+    final service = FakeAuthService()..useGoogleSession();
+    final auth = createAuth(service);
+    await launchApp(tester, auth);
+    expect(service.guestCreates, 0);
+    expect(auth.user?.id, 'test-user');
+    expect(auth.isGuest, isFalse);
+    expect(find.text('Cloud Jumper'), findsOneWidget);
+  });
+
+  testWidgets('Existing anonymous session is preserved without duplication', (
+    tester,
+  ) async {
+    final service = FakeAuthService()..useGuestSession(id: 'saved-guest');
+    final auth = createAuth(service);
+    await launchApp(tester, auth);
+    await auth.start();
+    expect(service.guestCreates, 0);
+    expect(auth.user?.id, 'saved-guest');
+    expect(find.text('Guest Player'), findsOneWidget);
+  });
+
+  testWidgets('Unconfigured startup reports unavailable services, not login', (
     tester,
   ) async {
     await tester.pumpWidget(const SkyHopperApp());
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
     expect(
-      find.textContaining('Sign-in is currently unavailable'),
+      find.textContaining('Game services are unavailable'),
       findsOneWidget,
     );
-    final button = tester.widget<FilledButton>(find.byType(FilledButton));
-    expect(button.onPressed, isNull);
+    expect(find.text('Continue with Google'), findsNothing);
     expect(find.byType(HomeScreen), findsNothing);
   });
 
-  testWidgets(
-    'Signed-in startup loads real profile presentation and Profile route',
-    (tester) async {
-      final service = FakeAuthService()..signInEvent();
-      final auth = createAuth(service);
-      await launchApp(tester, auth);
-      expect(find.text('Cloud Jumper'), findsOneWidget);
-      expect(find.text('Coins: 42'), findsOneWidget);
-      await tester.ensureVisible(find.text('PROFILE'));
-      await tester.tap(find.text('PROFILE'));
-      await tester.pumpAndSettle();
-      expect(find.byType(ProfileScreen), findsOneWidget);
-      expect(find.text('player@example.test'), findsOneWidget);
-      expect(find.text('Selected skin: default'), findsOneWidget);
-    },
-  );
+  testWidgets('Guest can open Profile and start normal gameplay', (
+    tester,
+  ) async {
+    final auth = createAuth(FakeAuthService());
+    await launchApp(tester, auth);
+    await tester.tap(find.text('PROFILE'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ProfileScreen), findsOneWidget);
+    expect(find.text('Playing as Guest'), findsOneWidget);
+    expect(find.text('Sign in with Google'), findsOneWidget);
+    await tester.tap(find.text('Back to Home'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('PLAY'));
+    await tester.pump();
+    expect(find.byType(GameScreen), findsOneWidget);
+  });
 
-  testWidgets('Rapid taps start only one OAuth launch; event reaches Home', (
+  testWidgets('Google linking keeps the guest owner and confirmed balance', (
     tester,
   ) async {
     final service = FakeAuthService();
     final auth = createAuth(service);
     await launchApp(tester, auth);
-    for (var i = 0; i < 4; i++) {
-      await tester.tap(find.text('Continue with Google'));
-    }
-    await tester.pump();
-    expect(service.launches, 1);
-    expect(auth.signingIn, isTrue);
-    service.signInEvent();
+    final guestId = auth.user!.id;
+    await tester.tap(find.text('PROFILE'));
     await tester.pumpAndSettle();
-    expect(find.byType(HomeScreen), findsOneWidget);
+    await tester.tap(find.text('Sign in with Google'));
+    await tester.pump();
+    expect(service.linkLaunches, 1);
+    expect(auth.signingIn, isTrue);
+    service.completeGoogleLink();
+    await tester.pumpAndSettle();
+    expect(auth.user?.id, guestId);
+    expect(auth.isGuest, isFalse);
+    expect(auth.profile?.totalCoins, 42);
+    expect(find.text('Cloud Jumper'), findsOneWidget);
   });
 
-  testWidgets('Launch failure is sanitized and allows retry', (tester) async {
-    final service = FakeAuthService()..launchFails = true;
+  testWidgets('Rapid link taps launch Google only once', (tester) async {
+    final service = FakeAuthService();
     final auth = createAuth(service);
     await launchApp(tester, auth);
-    await tester.tap(find.text('Continue with Google'));
+    await tester.tap(find.text('PROFILE'));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 4; i++) {
+      await tester.tap(find.text('Sign in with Google'));
+    }
+    await tester.pump();
+    expect(service.linkLaunches, 1);
+    auth.cancelPendingSignIn();
+    await tester.pump();
+  });
+
+  testWidgets('Link launch failure is sanitized and allows retry', (
+    tester,
+  ) async {
+    final service = FakeAuthService()..linkLaunchFails = true;
+    final auth = createAuth(service);
+    await launchApp(tester, auth);
+    await tester.tap(find.text('PROFILE'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sign in with Google'));
     await tester.pumpAndSettle();
     expect(
       find.text('Google sign-in could not open. Please try again.'),
@@ -170,53 +264,61 @@ void main() {
     expect(auth.signingIn, isFalse);
   });
 
-  testWidgets('OAuth cancel restores the button', (tester) async {
+  testWidgets('OAuth cancel restores the optional link action', (tester) async {
     final auth = createAuth(FakeAuthService());
     await launchApp(tester, auth);
-    await tester.tap(find.text('Continue with Google'));
+    await tester.tap(find.text('PROFILE'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sign in with Google'));
     await tester.pump();
     await tester.ensureVisible(find.text('Cancel sign-in'));
     await tester.tap(find.text('Cancel sign-in'));
     await tester.pumpAndSettle();
     expect(auth.signingIn, isFalse);
-    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Sign in with Google'), findsOneWidget);
   });
 
-  testWidgets('Logout clears protected data and back cannot reveal it', (
+  testWidgets('Signing out a permanent user immediately creates a guest', (
     tester,
   ) async {
-    final service = FakeAuthService()..signInEvent();
+    final service = FakeAuthService()..useGoogleSession();
     final auth = createAuth(service);
     await launchApp(tester, auth);
-    await tester.ensureVisible(find.text('PROFILE'));
     await tester.tap(find.text('PROFILE'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('SIGN OUT'));
     await tester.tap(find.text('SIGN OUT'));
     await tester.pumpAndSettle();
-    expect(find.byType(LoginScreen), findsOneWidget);
-    expect(auth.profile, isNull);
-    expect(auth.user, isNull);
-    expect(find.byType(HomeScreen), findsNothing);
-    expect(find.byType(ProfileScreen), findsNothing);
-    final navigator = Navigator.of(tester.element(find.byType(LoginScreen)));
-    expect(await navigator.maybePop(), isFalse);
-    await tester.pumpAndSettle();
-    expect(find.text('Cloud Jumper'), findsNothing);
+    expect(service.signOuts, 1);
+    expect(service.guestCreates, 1);
+    expect(auth.isGuest, isTrue);
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.text('Guest Player'), findsOneWidget);
+  });
+
+  testWidgets('Guest creation failure leaves a retryable screen', (
+    tester,
+  ) async {
+    final service = FakeAuthService()..guestCreateFails = true;
+    final auth = createAuth(service);
+    await launchApp(tester, auth);
+    expect(auth.stage, AuthStage.sessionError);
+    expect(find.textContaining('Guest play could not start'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
   testWidgets('Missing profile shows retry instead of fabricating a row', (
     tester,
   ) async {
-    final service = FakeAuthService()..signInEvent();
+    final service = FakeAuthService();
     var found = false;
     final auth = createAuth(
       service,
-      loader: () async => found ? testProfile : null,
+      loader: () async => found ? profileFor('guest-user') : null,
     );
     await launchApp(tester, auth);
     expect(
-      find.textContaining('Your profile is not available'),
+      find.textContaining('player profile is not available'),
       findsOneWidget,
     );
     found = true;
@@ -225,39 +327,40 @@ void main() {
     expect(find.byType(HomeScreen), findsOneWidget);
   });
 
+  testWidgets('Late profile response after account change stays isolated', (
+    tester,
+  ) async {
+    final service = FakeAuthService()..useGoogleSession();
+    final pending = Completer<Profile?>();
+    final auth = createAuth(service, loader: () => pending.future);
+    await tester.pumpWidget(SkyHopperApp(authController: auth));
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Loading your profile…'), findsOneWidget);
+    service.useGuestSession(id: 'other-owner');
+    pending.complete(profileFor('test-user', displayName: 'Cloud Jumper'));
+    await tester.pumpAndSettle();
+    expect(auth.user?.id, 'other-owner');
+    expect(auth.profile?.id, isNot('test-user'));
+  });
+
   testWidgets(
-    'Late profile response after sign-out cannot restore protected state',
+    'Session restoration preserves a session that arrives in flight',
     (tester) async {
-      final service = FakeAuthService()..signInEvent();
-      final pending = Completer<Profile?>();
-      final auth = createAuth(service, loader: () => pending.future);
+      final service = FakeAuthService()..restoration = Completer<void>();
+      final auth = createAuth(service);
       await tester.pumpWidget(SkyHopperApp(authController: auth));
       await tester.pump(const Duration(seconds: 2));
-      expect(find.text('Loading your profile…'), findsOneWidget);
-      await service.signOut();
-      pending.complete(testProfile);
+      expect(find.text('Restoring your session…'), findsOneWidget);
+      service.useGoogleSession();
+      service.restoration!.complete();
       await tester.pumpAndSettle();
-      expect(find.byType(LoginScreen), findsOneWidget);
-      expect(auth.profile, isNull);
+      expect(service.guestCreates, 0);
+      expect(auth.user?.id, 'test-user');
+      expect(find.byType(HomeScreen), findsOneWidget);
     },
   );
 
-  testWidgets('Session restoration waits before showing a destination', (
-    tester,
-  ) async {
-    final service = FakeAuthService()..restoration = Completer<void>();
-    final auth = createAuth(service);
-    await tester.pumpWidget(SkyHopperApp(authController: auth));
-    await tester.pump(const Duration(seconds: 2));
-    expect(find.text('Restoring your session…'), findsOneWidget);
-    expect(find.byType(LoginScreen), findsNothing);
-    service.signInEvent();
-    service.restoration!.complete();
-    await tester.pumpAndSettle();
-    expect(find.byType(HomeScreen), findsOneWidget);
-  });
-
-  testWidgets('Auth stream failure and logout failure show safe feedback', (
+  testWidgets('Auth stream failure shows safe recoverable feedback', (
     tester,
   ) async {
     final service = FakeAuthService();
@@ -266,20 +369,11 @@ void main() {
     service.events.addError(Exception('private token'));
     await tester.pumpAndSettle();
     expect(
-      find.textContaining('Sign-in could not be completed'),
-      findsOneWidget,
-    );
-    service.signInEvent();
-    await tester.pumpAndSettle();
-    service.logoutFails = true;
-    await auth.signOut();
-    await tester.pumpAndSettle();
-    expect(auth.stage, AuthStage.ready);
-    expect(
       auth.message,
-      'Sign out failed. Please check your connection and retry.',
+      'Account connection was interrupted. Please try again.',
     );
-    expect(auth.message, isNot(contains('private')));
+    expect(auth.message, isNot(contains('private token')));
+    expect(find.byType(HomeScreen), findsOneWidget);
   });
 
   for (final size in [
@@ -287,7 +381,7 @@ void main() {
     const Size(844, 390),
     const Size(1440, 900),
   ]) {
-    testWidgets('Login and Profile fit $size with enlarged text', (
+    testWidgets('Guest Home and Profile fit $size with enlarged text', (
       tester,
     ) async {
       tester.view.physicalSize = size;
@@ -296,16 +390,13 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      final service = FakeAuthService();
-      final auth = createAuth(service);
+      final auth = createAuth(FakeAuthService());
       await launchApp(tester, auth);
-      expect(tester.takeException(), isNull);
-      service.signInEvent();
-      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('home-action-grid')), findsOneWidget);
       await tester.ensureVisible(find.text('PROFILE'));
       await tester.tap(find.text('PROFILE'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('SIGN OUT'));
+      await tester.ensureVisible(find.text('Sign in with Google'));
       expect(tester.takeException(), isNull);
     });
   }

@@ -7,7 +7,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sky_hopper/app.dart';
 import 'package:sky_hopper/core/data/data_exception.dart';
 import 'package:sky_hopper/features/auth/auth_controller.dart';
-import 'package:sky_hopper/features/auth/login_screen.dart';
 import 'package:sky_hopper/features/game/components/player_component.dart';
 import 'package:sky_hopper/features/game/sky_hopper_game.dart';
 import 'package:sky_hopper/features/game/models/game_result.dart';
@@ -15,6 +14,7 @@ import 'package:sky_hopper/features/game/systems/game_state.dart';
 import 'package:sky_hopper/features/leaderboard/data/leaderboard_repository.dart';
 import 'package:sky_hopper/features/leaderboard/leaderboard_screen.dart';
 import 'package:sky_hopper/features/leaderboard/models/leaderboard_entry.dart';
+import 'package:sky_hopper/features/home/home_screen.dart';
 import 'package:sky_hopper/features/profile/models/profile.dart';
 import 'package:sky_hopper/features/skins/data/skin_repository.dart';
 import 'package:sky_hopper/features/skins/models/skin.dart';
@@ -128,7 +128,12 @@ class Harness {
     auth = AuthController(
       service: service,
       skinStore: store,
-      loadProfile: () async => store.serverProfile,
+      loadProfile: () async {
+        final owner = service.currentUser!.id;
+        return owner == store.serverProfile.id
+            ? store.serverProfile
+            : fixture.profileFor(owner);
+      },
     );
     addTearDown(auth.dispose);
     addTearDown(service.events.close);
@@ -703,7 +708,8 @@ void main() {
       await tester.pumpAndSettle();
       await h.service.signOut();
       await tester.pumpAndSettle();
-      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(find.byType(HomeScreen), findsOneWidget);
+      expect(find.text('Guest Player'), findsOneWidget);
       expect(find.byType(LeaderboardScreen), findsNothing);
       expect(find.byType(SkinsScreen), findsNothing);
     });

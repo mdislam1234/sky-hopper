@@ -4,7 +4,6 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sky_hopper/features/auth/login_screen.dart';
 import 'package:sky_hopper/features/game/config/game_config.dart';
 import 'package:sky_hopper/features/game/components/player_component.dart';
 import 'package:sky_hopper/features/game/components/platform_component.dart';
@@ -312,6 +311,7 @@ void main() {
     await service.signOut();
     await tester.pumpAndSettle();
     expect(find.byType(GameScreen), findsNothing);
-    expect(find.byType(LoginScreen), findsOneWidget);
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.text('Guest Player'), findsOneWidget);
   });
 }

@@ -41,7 +41,7 @@ The interface is a compact arcade cabinet floating in a bright illustrated sky. 
 
 ### Product context and register
 
-- **Audience and primary job:** Casual Web and Android players need to authenticate, start a run quickly, read score and hazards at a glance, and recover cleanly from pause or Game Over.
+- **Audience and primary job:** Casual Web and Android players need to reach play immediately as a guest, understand optional account protection, read score and hazards at a glance, and recover cleanly from pause or Game Over.
 - **Target markets and evidence:** The product is currently an English-language global game; the repository defines no market-specific business behavior.
 - **Locale and language policy:** English UI is canonical. Player-supplied names remain data and do not change control labels.
 - **Usage scene:** Short portrait-first play sessions with keyboard or touch controls, plus responsive landscape and desktop layouts.
@@ -83,13 +83,15 @@ Gold filled buttons indicate the primary next action. Tonal or text treatments c
 
 ### Navigation and data display
 
-Home presents PLAY first, then the current daily challenge and progression goals before leaderboard, skins, profile, and settings. The standard endless run remains the fastest path into play. Daily, weekly, and all-time competition belongs on pre-run and leaderboard screens; active gameplay keeps only score, coins, best, and the short mode label. Perfect streak, near miss, biome, and best-chase feedback stays transient to avoid crowding narrow screens.
+Home uses a compact logo and tagline, one player/coin bar, a dominant gold PLAY action, and a responsive two-column grid for Daily Challenge, Missions, Achievements, Leaderboard, Skins, and Profile. Settings is the single upper-right gear action. The standard endless run remains the fastest path into play, and the grid may collapse for narrow layouts with enlarged text. Daily, weekly, and all-time competition belongs on pre-run and leaderboard screens; active gameplay keeps only score, coins, best, and the short mode label. Perfect streak, near miss, biome, and best-chase feedback stays transient to avoid crowding narrow screens.
 
 Daily challenge cards state the UTC date, shared-course rule, ranked attempts remaining, personal best, top score, and whether the next run is ranked or unsaved practice. Mission and achievement cards share one visual grammar: an original Material-icon badge, a short goal, visible progress, a modest coin reward, and an explicit claim state. Completed, claimed, and locked states always use text as well as color. Competition surfaces keep the existing sky-and-cloud language rather than adopting a dense dashboard or casino presentation.
 
 ### Forms and overlays
 
 Settings uses adaptive switches with a title, a short consequence, and a supporting icon. Pause and Game Over use the same centered overlay pattern and keep Restart/Resume and Home reachable. Save errors remain inline with an explicit retry action.
+
+Startup is guest-first: a missing session creates an authenticated Supabase anonymous user, while an existing guest or Google session is preserved. Home identifies a guest as `Guest Player` without an account prompt. Profile contains the single optional Google-link action, a short protection benefit, and the uninstall/app-data warning. Linking must keep the current authenticated owner and progress; it never starts a separate Google sign-in that silently abandons guest data.
 
 Android Settings may add Google's `Privacy Options` row only when UMP requires the entry point. It follows the existing ListTile grammar and opens the provider-owned form; no custom consent card or disable-ads switch belongs here.
 
