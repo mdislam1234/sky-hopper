@@ -65,7 +65,7 @@ Material's Roboto/system fallback is used for both roles. Display text earns cha
 
 ## Layout
 
-Shared menu pages respect platform safe areas, scroll as one document, use 24px horizontal and 32px vertical padding, and center a 440px maximum-width content column. Gameplay follows the device orientation and fills the available safe area. Its responsive Flame viewport preserves the portrait world-to-screen scale and the centered 400×720 fairness lane. Landscape crops that unchanged simulation frame vertically and reveals additional biome scenery at the sides, so it never uses gutters, shrinks gameplay objects, or stretches game art. HUD content remains compact, controls stay near the lower corners, and transient streak/near-miss notices appear away from the player.
+Shared menu pages respect platform safe areas, scroll as one document, use 24px horizontal and 32px vertical padding, and center a 440px maximum-width content column. Gameplay follows the device orientation and fills the available safe area. Its responsive Flame viewport preserves the portrait world-to-screen scale and the centered 400×720 fairness lane. Landscape crops that unchanged simulation frame vertically, uses a stable one-way camera band that preserves visible jump arcs, and reveals additional biome scenery at the sides. It never uses gutters, shrinks gameplay objects, or stretches game art. HUD content remains compact, controls stay near the lower corners, and transient streak/near-miss notices appear away from the player.
 
 ## Elevation & Depth
 

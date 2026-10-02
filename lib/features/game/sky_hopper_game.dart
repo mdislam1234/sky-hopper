@@ -73,6 +73,7 @@ class SkyHopperGame extends FlameGame {
     GameConfig.height,
   );
   double _viewportScale = 1;
+  double? _landscapeCameraTop;
   Biome _lastBiome = Biome.sunny;
   Biome? _biomeNotice;
   double _biomeNoticeRemaining = 0;
@@ -115,6 +116,8 @@ class SkyHopperGame extends FlameGame {
     super.onGameResize(size);
     if (size.x <= 0 || size.y <= 0) return;
 
+    final wasLandscapeCrop = _logicalViewportSize.y < GameConfig.height;
+
     // Keep the same world-to-screen scale when the device rotates. Treat the
     // short edge as the portrait width and the long edge as the portrait
     // height, then expose more world horizontally in landscape instead of
@@ -129,6 +132,12 @@ class SkyHopperGame extends FlameGame {
       size.x / _viewportScale,
       size.y / _viewportScale,
     );
+    final usesLandscapeCrop = _logicalViewportSize.y < GameConfig.height;
+    if (usesLandscapeCrop && !wasLandscapeCrop) {
+      _landscapeCameraTop = _initialLandscapeCameraTop(_logicalViewportSize.y);
+    } else if (!usesLandscapeCrop) {
+      _landscapeCameraTop = null;
+    }
     camera.viewfinder.zoom = _viewportScale;
     _updateCameraPosition();
   }
@@ -248,14 +257,37 @@ class SkyHopperGame extends FlameGame {
     }
 
     // Landscape displays a vertical crop of the unchanged 720-unit gameplay
-    // frame. Follow the player only within that frame so the opening platform
-    // and later camera progression remain visible without affecting physics.
+    // frame. It uses the same one-way follow rule as the simulation camera:
+    // crossing the upper band can move the view upward, while falling never
+    // moves it back down. This preserves the visible rise/apex/fall arc.
     final maximumCrop = GameConfig.height - viewportHeight;
-    final playerCenter =
-        state.y + GameConfig.playerHeight / 2 - state.cameraTop;
-    final targetPlayerY = viewportHeight * 0.55;
-    final crop = (playerCenter - targetPlayerY).clamp(0.0, maximumCrop);
-    return state.cameraTop + crop;
+    final minimumTop = state.cameraTop;
+    final maximumTop = state.cameraTop + maximumCrop;
+    final currentTop =
+        (_landscapeCameraTop ?? _initialLandscapeCameraTop(viewportHeight))
+            .clamp(minimumTop, maximumTop);
+    final followThreshold = _landscapeFollowThreshold(viewportHeight);
+    _landscapeCameraTop = math
+        .min(currentTop, state.y - followThreshold)
+        .clamp(minimumTop, maximumTop);
+    return _landscapeCameraTop!;
+  }
+
+  double _initialLandscapeCameraTop(double viewportHeight) {
+    final maximumCrop = GameConfig.height - viewportHeight;
+    final desiredPlayerCenterY =
+        _landscapeFollowThreshold(viewportHeight) +
+        GameConfig.jumpHeight +
+        GameConfig.playerHeight / 2;
+    final playerCenter = state.y + GameConfig.playerHeight / 2;
+    return (playerCenter - desiredPlayerCenterY).clamp(
+      state.cameraTop,
+      state.cameraTop + maximumCrop,
+    );
+  }
+
+  double _landscapeFollowThreshold(double viewportHeight) {
+    return viewportHeight * GameConfig.cameraZone / GameConfig.height;
   }
 
   void _processFeedback(List<GameFeedbackEvent> events) {

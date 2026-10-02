@@ -270,6 +270,21 @@ void main() {
         playerTopOnScreen + GameConfig.playerHeight * game.viewportScale;
     expect(playerTopOnScreen, greaterThanOrEqualTo(0));
     expect(playerBottomOnScreen, lessThanOrEqualTo(360));
+
+    final jumpScreenY = <double>[];
+    final jumpCameraY = <double>[];
+    for (final worldY in [582.0, 520.0, 460.0, 432.0, 460.0, 520.0, 582.0]) {
+      state.y = worldY;
+      game.update(0);
+      jumpCameraY.add(game.camera.viewfinder.position.y);
+      jumpScreenY.add(
+        (state.y - game.camera.viewfinder.position.y) * game.viewportScale,
+      );
+    }
+    expect(jumpScreenY.first - jumpScreenY[3], closeTo(135, 0.01));
+    expect(jumpScreenY.last, closeTo(jumpScreenY.first, 0.01));
+    expect(jumpCameraY.toSet(), hasLength(1));
+    state.y = 582;
     expect(find.byTooltip('Pause game'), findsOneWidget);
     expect(find.bySemanticsLabel('Hold to move left'), findsOneWidget);
     expect(find.bySemanticsLabel('Hold to move right'), findsOneWidget);
