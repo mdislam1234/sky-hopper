@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sky_hopper/app.dart';
 import 'package:sky_hopper/features/home/home_screen.dart';
+import 'package:sky_hopper/features/profile/models/profile.dart';
 import 'package:sky_hopper/features/splash/splash_screen.dart';
 
 void setViewport(WidgetTester tester, Size size) {
@@ -63,29 +64,29 @@ void main() {
       setViewport(tester, size);
       await enterHome(tester);
       for (final text in [
-        'SKY HOPPER',
         'PLAY',
-        'DAILY CHALLENGE',
-        'MISSIONS',
-        'ACHIEVEMENTS',
-        'LEADERBOARD',
-        'SKINS',
-        'PROFILE',
+        'Daily Challenge',
+        'Missions',
+        'Achievements',
+        'Leaderboard',
+        'Skins',
+        'Profile',
         'Guest Player',
+        'Settings',
       ]) {
         expect(find.text(text), findsOneWidget);
       }
+      expect(find.byKey(const ValueKey('home-hero')), findsOneWidget);
       expect(find.byKey(const ValueKey('home-action-grid')), findsOneWidget);
-      expect(find.byTooltip('Settings'), findsOneWidget);
       expect(find.text('Coins: 0'), findsOneWidget);
       const messages = {
         'PLAY': 'Game mode is unavailable.',
-        'DAILY CHALLENGE': 'Daily Challenge requires a connection.',
-        'MISSIONS': 'Daily Missions require a connection.',
-        'ACHIEVEMENTS': 'Achievements require a connection.',
-        'LEADERBOARD': 'Leaderboard is unavailable.',
-        'SKINS': 'Skins are unavailable.',
-        'PROFILE': 'Profile is unavailable.',
+        'Daily Challenge': 'Daily Challenge requires a connection.',
+        'Missions': 'Daily Missions require a connection.',
+        'Achievements': 'Achievements require a connection.',
+        'Leaderboard': 'Leaderboard is unavailable.',
+        'Skins': 'Skins are unavailable.',
+        'Profile': 'Profile is unavailable.',
       };
       for (final entry in messages.entries) {
         await tester.ensureVisible(find.text(entry.key));
@@ -97,7 +98,11 @@ void main() {
             .removeCurrentSnackBar();
         await tester.pumpAndSettle();
       }
-      expect(find.byType(HomeScreen), findsOneWidget);
+      await tester.ensureVisible(find.text('Settings'));
+      await tester.tap(find.text('Settings'));
+      await tester.pumpAndSettle();
+      expect(find.text('SETTINGS'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   }
 
@@ -108,7 +113,7 @@ void main() {
     tester.platformDispatcher.textScaleFactorTestValue = 2;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await enterHome(tester);
-    for (final label in ['PLAY', 'LEADERBOARD', 'SKINS', 'PROFILE']) {
+    for (final label in ['PLAY', 'Leaderboard', 'Skins', 'Profile']) {
       await tester.ensureVisible(find.text(label));
       await tester.tap(find.text(label));
       await tester.pumpAndSettle();
@@ -127,6 +132,14 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: HomeScreen(
+          profile: Profile(
+            id: 'player',
+            displayName: 'Cloud Jumper',
+            totalCoins: 42,
+            selectedSkin: 'default',
+            createdAt: DateTime.utc(2026),
+            updatedAt: DateTime.utc(2026),
+          ),
           playerName: 'Cloud Jumper',
           onPlay: () => opened.add('play'),
           onDailyChallenge: () => opened.add('daily'),
@@ -141,12 +154,12 @@ void main() {
     );
     for (final entry in {
       'PLAY': 'play',
-      'DAILY CHALLENGE': 'daily',
-      'MISSIONS': 'missions',
-      'ACHIEVEMENTS': 'achievements',
-      'LEADERBOARD': 'leaderboard',
-      'SKINS': 'skins',
-      'PROFILE': 'profile',
+      'Daily Challenge': 'daily',
+      'Missions': 'missions',
+      'Achievements': 'achievements',
+      'Leaderboard': 'leaderboard',
+      'Skins': 'skins',
+      'Profile': 'profile',
     }.entries) {
       await tester.ensureVisible(find.text(entry.key));
       await tester.tap(find.text(entry.key));
@@ -155,6 +168,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('home-settings')));
     expect(opened.last, 'settings');
     expect(find.text('Cloud Jumper'), findsOneWidget);
+    expect(find.text('Coins: 42'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

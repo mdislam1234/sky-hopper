@@ -662,14 +662,14 @@ void main() {
     (tester) async {
       final h = Harness();
       await openApp(tester, h);
-      await tester.ensureVisible(find.text('LEADERBOARD'));
-      await tester.tap(find.text('LEADERBOARD'));
+      await tester.ensureVisible(find.text('Leaderboard'));
+      await tester.tap(find.text('Leaderboard'));
       await tester.pumpAndSettle();
       expect(find.byType(LeaderboardScreen), findsOneWidget);
       await tester.tap(find.byTooltip('Home'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('SKINS'));
-      await tester.tap(find.text('SKINS'));
+      await tester.ensureVisible(find.text('Skins'));
+      await tester.tap(find.text('Skins'));
       await tester.pumpAndSettle();
       expect(find.byType(SkinsScreen), findsOneWidget);
       await h.auth.unlockSkinFor('test-user', 'sunset');
@@ -678,8 +678,8 @@ void main() {
       await tester.tap(find.byTooltip('Home'));
       await tester.pumpAndSettle();
       expect(find.text('Coins: 22'), findsOneWidget);
-      await tester.ensureVisible(find.text('PROFILE'));
-      await tester.tap(find.text('PROFILE'));
+      await tester.ensureVisible(find.text('Profile'));
+      await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
       expect(find.text('Selected skin: sunset'), findsOneWidget);
       await tester.tap(find.text('Back to Home'));
@@ -699,7 +699,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
-  for (final destination in ['LEADERBOARD', 'SKINS']) {
+  for (final destination in ['Leaderboard', 'Skins']) {
     testWidgets('Sign-out removes protected $destination page', (tester) async {
       final h = Harness();
       await openApp(tester, h);

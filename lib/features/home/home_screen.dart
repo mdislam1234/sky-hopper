@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/widgets/game_menu_button.dart';
-import '../../core/widgets/sky_hopper_logo.dart';
 import '../../core/widgets/sky_page.dart';
 import '../profile/models/profile.dart';
 import 'widgets/home_action_card.dart';
+import 'widgets/home_hero.dart';
 import 'widgets/player_summary_card.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
     this.profile,
     this.playerName,
+    this.avatarUrl,
     this.isGuest = false,
     this.onProfile,
     this.onPlay,
@@ -25,6 +27,7 @@ class HomeScreen extends StatelessWidget {
 
   final Profile? profile;
   final String? playerName;
+  final String? avatarUrl;
   final bool isGuest;
   final VoidCallback? onProfile;
   final VoidCallback? onPlay;
@@ -51,8 +54,9 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final actions = [
       _HomeAction(
-        label: 'DAILY CHALLENGE',
+        label: 'Daily Challenge',
         icon: Icons.event_available_rounded,
+        accentColor: AppColors.orange,
         onPressed: _action(
           context,
           onDailyChallenge,
@@ -60,8 +64,9 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       _HomeAction(
-        label: 'MISSIONS',
+        label: 'Missions',
         icon: Icons.flag_outlined,
+        accentColor: AppColors.coral,
         onPressed: _action(
           context,
           onDailyMissions,
@@ -69,8 +74,9 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       _HomeAction(
-        label: 'ACHIEVEMENTS',
+        label: 'Achievements',
         icon: Icons.workspace_premium_outlined,
+        accentColor: AppColors.orange,
         onPressed: _action(
           context,
           onAchievements,
@@ -78,8 +84,9 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       _HomeAction(
-        label: 'LEADERBOARD',
+        label: 'Leaderboard',
         icon: Icons.emoji_events_outlined,
+        accentColor: AppColors.gold,
         onPressed: _action(
           context,
           onLeaderboard,
@@ -87,52 +94,31 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       _HomeAction(
-        label: 'SKINS',
+        label: 'Skins',
         icon: Icons.palette_outlined,
+        accentColor: AppColors.purple,
         onPressed: _action(context, onSkins, 'Skins are unavailable.'),
       ),
       _HomeAction(
-        label: 'PROFILE',
+        label: 'Profile',
         icon: Icons.person_outline_rounded,
+        accentColor: AppColors.royalBlue,
         onPressed: _action(context, onProfile, 'Profile is unavailable.'),
       ),
     ];
+
+    final media = MediaQuery.of(context);
+    final compact =
+        media.size.height < 700 || media.orientation == Orientation.landscape;
+    final sectionGap = compact ? 10.0 : 14.0;
 
     return SkyPage(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Stack(
-            alignment: Alignment.topCenter,
-            children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 52),
-                child: SkyHopperLogo(compact: true),
-              ),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: IconButton(
-                  key: const ValueKey('home-settings'),
-                  onPressed: _action(
-                    context,
-                    onSettings,
-                    'Settings are unavailable.',
-                  ),
-                  tooltip: 'Settings',
-                  icon: const Icon(Icons.settings_outlined),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Jump higher. Beat your best.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 18),
+          HomeHero(key: const ValueKey('home-hero'), compact: compact),
+          SizedBox(height: compact ? 4 : 8),
           PlayerSummaryCard(
             key: const ValueKey('home-player-summary'),
             playerName:
@@ -142,26 +128,29 @@ class HomeScreen extends StatelessWidget {
                     : 'Guest Player'),
             coins: profile?.totalCoins ?? 0,
             isGuest: isGuest,
+            avatarUrl: avatarUrl ?? profile?.avatarUrl,
             onPressed: onProfile,
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: sectionGap),
           GameMenuButton(
             label: 'PLAY',
             icon: Icons.play_arrow_rounded,
             primary: true,
             onPressed: _action(context, onPlay, 'Game mode is unavailable.'),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: sectionGap + 2),
           LayoutBuilder(
             builder: (context, constraints) {
               final scaledBody = MediaQuery.textScalerOf(context).scale(16);
               final useSingleColumn =
                   constraints.maxWidth < 300 && scaledBody > 22;
               final tileHeight = scaledBody > 25
-                  ? 104.0
+                  ? 102.0
                   : scaledBody > 19
-                  ? 90.0
-                  : 78.0;
+                  ? 88.0
+                  : compact
+                  ? 68.0
+                  : 74.0;
               return GridView.builder(
                 key: const ValueKey('home-action-grid'),
                 shrinkWrap: true,
@@ -179,11 +168,33 @@ class HomeScreen extends StatelessWidget {
                     key: ValueKey('home-${action.label.toLowerCase()}'),
                     label: action.label,
                     icon: action.icon,
+                    accentColor: action.accentColor,
+                    allowWrap: action.label == 'Daily Challenge',
                     onPressed: action.onPressed,
                   );
                 },
               );
             },
+          ),
+          SizedBox(height: sectionGap),
+          Align(
+            alignment: Alignment.center,
+            child: SizedBox(
+              key: const ValueKey('home-settings'),
+              width: 240,
+              height: compact ? 64 : 70,
+              child: HomeActionCard(
+                label: 'Settings',
+                icon: Icons.settings_rounded,
+                accentColor: AppColors.deepBlue,
+                centered: true,
+                onPressed: _action(
+                  context,
+                  onSettings,
+                  'Settings are unavailable.',
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -195,10 +206,12 @@ class _HomeAction {
   const _HomeAction({
     required this.label,
     required this.icon,
+    required this.accentColor,
     required this.onPressed,
   });
 
   final String label;
   final IconData icon;
+  final Color accentColor;
   final VoidCallback onPressed;
 }

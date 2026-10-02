@@ -9,6 +9,10 @@ colors:
   deep-blue: "#123B69"
   cloud: "#FFFFFF"
   gold: "#FFD45A"
+  orange: "#FF9F1C"
+  coral: "#FF6F61"
+  royal-blue: "#2D84FF"
+  purple: "#8067E8"
 typography:
   display:
     fontFamily: "Roboto, system-ui, sans-serif"
@@ -83,7 +87,7 @@ Gold filled buttons indicate the primary next action. Tonal or text treatments c
 
 ### Navigation and data display
 
-Home uses a compact logo and tagline, one player/coin bar, a dominant gold PLAY action, and a responsive two-column grid for Daily Challenge, Missions, Achievements, Leaderboard, Skins, and Profile. Settings is the single upper-right gear action. The standard endless run remains the fastest path into play, and the grid may collapse for narrow layouts with enlarged text. Daily, weekly, and all-time competition belongs on pre-run and leaderboard screens; active gameplay keeps only score, coins, best, and the short mode label. Perfect streak, near miss, biome, and best-chase feedback stays transient to avoid crowding narrow screens.
+Home uses a large stacked wordmark with the existing Sky Hopper mascot art and a short `JUMP HIGHER` tagline. A single white player/coin bar and raised gold PLAY action lead into a responsive two-column grid for Daily Challenge, Missions, Achievements, Leaderboard, Skins, and Profile. Color is concentrated in the icon badges, while a single centered Settings tile closes the menu. The standard endless run remains the fastest path into play, and the grid may collapse for narrow layouts with enlarged text. Daily, weekly, and all-time competition belongs on pre-run and leaderboard screens; active gameplay keeps only score, coins, best, and the short mode label. Perfect streak, near miss, biome, and best-chase feedback stays transient to avoid crowding narrow screens.
 
 Daily challenge cards state the UTC date, shared-course rule, ranked attempts remaining, personal best, top score, and whether the next run is ranked or unsaved practice. Mission and achievement cards share one visual grammar: an original Material-icon badge, a short goal, visible progress, a modest coin reward, and an explicit claim state. Completed, claimed, and locked states always use text as well as color. Competition surfaces keep the existing sky-and-cloud language rather than adopting a dense dashboard or casino presentation.
 

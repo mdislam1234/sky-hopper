@@ -113,6 +113,7 @@ class _AuthGateState extends State<AuthGate> {
       screen = HomeScreen(
         profile: auth.profile,
         playerName: auth.playerName,
+        avatarUrl: auth.avatarUrl,
         isGuest: auth.isGuest,
         onPlay: auth.profile == null ? null : () => unawaited(_openGame(auth)),
         onLeaderboard: auth.profile == null

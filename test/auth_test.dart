@@ -198,7 +198,7 @@ void main() {
   ) async {
     final auth = createAuth(FakeAuthService());
     await launchApp(tester, auth);
-    await tester.tap(find.text('PROFILE'));
+    await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
     expect(find.byType(ProfileScreen), findsOneWidget);
     expect(find.text('Playing as Guest'), findsOneWidget);
@@ -217,7 +217,7 @@ void main() {
     final auth = createAuth(service);
     await launchApp(tester, auth);
     final guestId = auth.user!.id;
-    await tester.tap(find.text('PROFILE'));
+    await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign in with Google'));
     await tester.pump();
@@ -235,7 +235,7 @@ void main() {
     final service = FakeAuthService();
     final auth = createAuth(service);
     await launchApp(tester, auth);
-    await tester.tap(find.text('PROFILE'));
+    await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
     for (var i = 0; i < 4; i++) {
       await tester.tap(find.text('Sign in with Google'));
@@ -252,7 +252,7 @@ void main() {
     final service = FakeAuthService()..linkLaunchFails = true;
     final auth = createAuth(service);
     await launchApp(tester, auth);
-    await tester.tap(find.text('PROFILE'));
+    await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign in with Google'));
     await tester.pumpAndSettle();
@@ -267,7 +267,7 @@ void main() {
   testWidgets('OAuth cancel restores the optional link action', (tester) async {
     final auth = createAuth(FakeAuthService());
     await launchApp(tester, auth);
-    await tester.tap(find.text('PROFILE'));
+    await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign in with Google'));
     await tester.pump();
@@ -284,7 +284,7 @@ void main() {
     final service = FakeAuthService()..useGoogleSession();
     final auth = createAuth(service);
     await launchApp(tester, auth);
-    await tester.tap(find.text('PROFILE'));
+    await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('SIGN OUT'));
     await tester.pumpAndSettle();
@@ -393,8 +393,8 @@ void main() {
       final auth = createAuth(FakeAuthService());
       await launchApp(tester, auth);
       expect(find.byKey(const ValueKey('home-action-grid')), findsOneWidget);
-      await tester.ensureVisible(find.text('PROFILE'));
-      await tester.tap(find.text('PROFILE'));
+      await tester.ensureVisible(find.text('Profile'));
+      await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Sign in with Google'));
       expect(tester.takeException(), isNull);

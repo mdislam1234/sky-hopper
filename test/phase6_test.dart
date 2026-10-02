@@ -466,8 +466,8 @@ void main() {
         await tester.tap(find.text('HOME'));
         await tester.pumpAndSettle();
         expect(find.text('Coins: ${success ? 45 : 42}'), findsOneWidget);
-        await tester.ensureVisible(find.text('PROFILE'));
-        await tester.tap(find.text('PROFILE'));
+        await tester.ensureVisible(find.text('Profile'));
+        await tester.tap(find.text('Profile'));
         await tester.pumpAndSettle();
         expect(find.byType(ProfileScreen), findsOneWidget);
         expect(find.text('Coins: ${success ? 45 : 42}'), findsOneWidget);
