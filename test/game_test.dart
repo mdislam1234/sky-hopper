@@ -239,6 +239,7 @@ void main() {
     state.x = 177;
 
     expect(tester.getSize(gameWidget), const Size(360, 800));
+    expect(game.viewportScale, closeTo(0.9, 0.001));
     expect(game.logicalViewportSize.x, closeTo(400, 0.01));
     expect(game.logicalViewportSize.y, closeTo(888.89, 0.01));
     expect(game.gameplayLaneInViewport.left, closeTo(0, 0.01));
@@ -257,10 +258,18 @@ void main() {
     expect(game.state.x, closeTo(177, 0.01));
     expect(game.state.phase, RunPhase.playing);
     expect(tester.getSize(gameWidget), const Size(800, 360));
-    expect(game.logicalViewportSize.x, closeTo(1600, 0.01));
-    expect(game.logicalViewportSize.y, closeTo(720, 0.01));
-    expect(game.gameplayLaneInViewport.left, closeTo(600, 0.01));
-    expect(game.camera.viewfinder.position.x, closeTo(-600, 0.01));
+    expect(game.viewportScale, closeTo(0.9, 0.001));
+    expect(game.logicalViewportSize.x, closeTo(888.89, 0.01));
+    expect(game.logicalViewportSize.y, closeTo(400, 0.01));
+    expect(game.gameplayLaneInViewport.left, closeTo(244.44, 0.01));
+    expect(game.camera.viewfinder.position.x, closeTo(-244.44, 0.01));
+    expect(GameConfig.playerWidth * game.viewportScale, closeTo(28.8, 0.01));
+    final playerTopOnScreen =
+        (game.state.y - game.camera.viewfinder.position.y) * game.viewportScale;
+    final playerBottomOnScreen =
+        playerTopOnScreen + GameConfig.playerHeight * game.viewportScale;
+    expect(playerTopOnScreen, greaterThanOrEqualTo(0));
+    expect(playerBottomOnScreen, lessThanOrEqualTo(360));
     expect(find.byTooltip('Pause game'), findsOneWidget);
     expect(find.bySemanticsLabel('Hold to move left'), findsOneWidget);
     expect(find.bySemanticsLabel('Hold to move right'), findsOneWidget);
@@ -276,6 +285,7 @@ void main() {
     );
     expect(identical(game.state, state), isTrue);
     expect(game.state.score, greaterThanOrEqualTo(12));
+    expect(game.viewportScale, closeTo(0.9, 0.001));
     expect(game.logicalViewportSize.x, closeTo(400, 0.01));
     expect(game.camera.viewfinder.position.x, closeTo(0, 0.01));
     expect(orientationCalls, isEmpty);

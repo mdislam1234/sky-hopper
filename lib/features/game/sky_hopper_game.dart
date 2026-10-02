@@ -91,7 +91,7 @@ class SkyHopperGame extends FlameGame {
     final viewport = logicalViewportSize;
     return Rect.fromLTWH(
       (viewport.x - GameConfig.width) / 2,
-      (viewport.y - GameConfig.height) / 2,
+      state.cameraTop - _cameraPosition.y,
       GameConfig.width,
       GameConfig.height,
     );
@@ -114,9 +114,16 @@ class SkyHopperGame extends FlameGame {
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
     if (size.x <= 0 || size.y <= 0) return;
+
+    // Keep the same world-to-screen scale when the device rotates. Treat the
+    // short edge as the portrait width and the long edge as the portrait
+    // height, then expose more world horizontally in landscape instead of
+    // shrinking the 400-unit gameplay lane to fit 720 units vertically.
+    final portraitWidth = math.min(size.x, size.y);
+    final portraitHeight = math.max(size.x, size.y);
     _viewportScale = math.min(
-      size.x / GameConfig.width,
-      size.y / GameConfig.height,
+      portraitWidth / GameConfig.width,
+      portraitHeight / GameConfig.height,
     );
     _logicalViewportSize.setValues(
       size.x / _viewportScale,
@@ -230,9 +237,25 @@ class SkyHopperGame extends FlameGame {
     final viewport = _logicalViewportSize;
     _cameraPosition.setValues(
       (GameConfig.width - viewport.x) / 2 + shakeX,
-      state.cameraTop + (GameConfig.height - viewport.y) / 2 + shakeY,
+      _visibleCameraTop(viewport.y) + shakeY,
     );
     camera.viewfinder.position = _cameraPosition;
+  }
+
+  double _visibleCameraTop(double viewportHeight) {
+    if (viewportHeight >= GameConfig.height) {
+      return state.cameraTop + (GameConfig.height - viewportHeight) / 2;
+    }
+
+    // Landscape displays a vertical crop of the unchanged 720-unit gameplay
+    // frame. Follow the player only within that frame so the opening platform
+    // and later camera progression remain visible without affecting physics.
+    final maximumCrop = GameConfig.height - viewportHeight;
+    final playerCenter =
+        state.y + GameConfig.playerHeight / 2 - state.cameraTop;
+    final targetPlayerY = viewportHeight * 0.55;
+    final crop = (playerCenter - targetPlayerY).clamp(0.0, maximumCrop);
+    return state.cameraTop + crop;
   }
 
   void _processFeedback(List<GameFeedbackEvent> events) {
