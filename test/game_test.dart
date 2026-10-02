@@ -10,6 +10,7 @@ import 'package:sky_hopper/features/game/components/platform_component.dart';
 import 'package:sky_hopper/features/game/sky_hopper_game.dart';
 import 'package:sky_hopper/features/game/systems/game_state.dart';
 import 'package:sky_hopper/features/game/systems/platform_generator.dart';
+import 'package:sky_hopper/features/game/systems/run_save_controller.dart';
 import 'package:sky_hopper/features/game/widgets/game_screen.dart';
 import 'package:sky_hopper/features/game/widgets/game_over_overlay.dart';
 import 'package:sky_hopper/features/home/home_screen.dart';
@@ -208,7 +209,7 @@ void main() {
     expect(state.cameraTop, oldCamera);
   });
 
-  testWidgets('Game requests portrait and restores normal orientations', (
+  testWidgets('Game follows rotation without resetting the active run', (
     tester,
   ) async {
     final orientationCalls = <MethodCall>[];
@@ -224,16 +225,64 @@ void main() {
       () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
     );
 
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(MaterialApp(home: GameScreen(onHome: () {})));
+    await tester.pump(const Duration(milliseconds: 16));
+    final gameWidget = find.byType(GameWidget<SkyHopperGame>);
+    final game = tester.widget<GameWidget<SkyHopperGame>>(gameWidget).game!;
+    final state = game.state;
+    state.progress.observe(123);
+    state.x = 177;
+
+    expect(tester.getSize(gameWidget), const Size(360, 800));
+    expect(game.logicalViewportSize.x, closeTo(400, 0.01));
+    expect(game.logicalViewportSize.y, closeTo(888.89, 0.01));
+    expect(game.gameplayLaneInViewport.left, closeTo(0, 0.01));
+
+    tester.view.physicalSize = const Size(800, 360);
     await tester.pump();
     expect(
-      orientationCalls.map((call) => call.arguments),
-      contains(equals(<String>['DeviceOrientation.portraitUp'])),
+      identical(
+        tester.widget<GameWidget<SkyHopperGame>>(gameWidget).game,
+        game,
+      ),
+      isTrue,
     );
+    expect(identical(game.state, state), isTrue);
+    expect(game.state.score, greaterThanOrEqualTo(12));
+    expect(game.state.x, closeTo(177, 0.01));
+    expect(game.state.phase, RunPhase.playing);
+    expect(tester.getSize(gameWidget), const Size(800, 360));
+    expect(game.logicalViewportSize.x, closeTo(1600, 0.01));
+    expect(game.logicalViewportSize.y, closeTo(720, 0.01));
+    expect(game.gameplayLaneInViewport.left, closeTo(600, 0.01));
+    expect(game.camera.viewfinder.position.x, closeTo(-600, 0.01));
+    expect(find.byTooltip('Pause game'), findsOneWidget);
+    expect(find.bySemanticsLabel('Hold to move left'), findsOneWidget);
+    expect(find.bySemanticsLabel('Hold to move right'), findsOneWidget);
+
+    tester.view.physicalSize = const Size(360, 800);
+    await tester.pump();
+    expect(
+      identical(
+        tester.widget<GameWidget<SkyHopperGame>>(gameWidget).game,
+        game,
+      ),
+      isTrue,
+    );
+    expect(identical(game.state, state), isTrue);
+    expect(game.state.score, greaterThanOrEqualTo(12));
+    expect(game.logicalViewportSize.x, closeTo(400, 0.01));
+    expect(game.camera.viewfinder.position.x, closeTo(0, 0.01));
+    expect(orientationCalls, isEmpty);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
-    expect(orientationCalls.last.arguments, isEmpty);
+    expect(orientationCalls, isEmpty);
   });
 
   testWidgets(
@@ -281,6 +330,53 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('Game Over remains usable in landscape with large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(720, 360);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(
+            size: Size(720, 360),
+            textScaler: TextScaler.linear(2),
+          ),
+          child: Scaffold(
+            body: GameOverOverlay(
+              score: 12345,
+              coins: 678,
+              paused: false,
+              savePhase: SavePhase.failed,
+              onRetry: () {},
+              rewardActionLabel: 'WATCH AD — BONUS COINS',
+              rewardStatus: 'Video unavailable. Try again.',
+              onReward: () {},
+              onRewardRetry: () {},
+              onContinue: () {},
+              onHome: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('GAME OVER'), findsOneWidget);
+    expect(find.byKey(const Key('game-overlay-score')), findsOneWidget);
+    expect(find.byKey(const Key('game-overlay-coins')), findsOneWidget);
+    expect(find.byKey(const Key('game-overlay-reward-label')), findsOneWidget);
+    expect(find.text('RETRY SAVE'), findsOneWidget);
+    expect(find.text('RETRY VIDEO'), findsOneWidget);
+    await tester.ensureVisible(find.text('HOME'));
+    await tester.pump();
+    expect(find.text('RESTART'), findsOneWidget);
+    expect(find.text('HOME'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final size in [
     const Size(280, 560),
@@ -354,9 +450,11 @@ void main() {
       );
       game.state.y = 100;
       game.update(1 / 60);
+      final verticalViewportOffset =
+          (GameConfig.height - game.logicalViewportSize.y) / 2;
       expect(
         game.camera.viewfinder.position.y,
-        closeTo(game.state.cameraTop, 0.001),
+        closeTo(game.state.cameraTop + verticalViewportOffset, 0.001),
       );
       expect(game.camera.viewfinder.position.y, lessThan(0));
       game.state.y = game.state.cameraTop + 900;

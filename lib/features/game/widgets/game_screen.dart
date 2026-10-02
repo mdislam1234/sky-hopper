@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../config/game_config.dart';
 import '../sky_hopper_game.dart';
 import '../systems/game_state.dart';
 import '../systems/run_save_controller.dart';
@@ -21,7 +20,6 @@ import '../audio/game_audio_service.dart';
 import '../audio/game_feedback_controller.dart';
 import '../audio/haptics_service.dart';
 import 'game_over_overlay.dart';
-import 'gameplay_orientation.dart';
 import '../../ads/ad_service.dart';
 import '../../ads/monetization_controller.dart';
 import '../../ads/rewarded_bonus_claim.dart';
@@ -58,7 +56,6 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
-  late final GameplayOrientationLease _orientationLease;
   late SkyHopperGame _game;
   late RunSaveController _save;
   late final GameFeedbackController _feedback;
@@ -76,7 +73,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    _orientationLease = GameplayOrientation.acquire();
     _feedback =
         widget.feedbackFactory?.call() ??
         GameFeedbackController(
@@ -414,7 +410,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _orientationLease.release();
     _game.pauseEngine();
     _game.status.removeListener(_onRunChanged);
     _game.feedbackEvents.removeListener(_onFeedback);
@@ -524,110 +519,103 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         onFocusChange: (focused) {
           if (!focused) _pause();
         },
-        child: Center(
-          child: AspectRatio(
-            aspectRatio: GameConfig.width / GameConfig.height,
-            child: ClipRect(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  GameWidget<SkyHopperGame>(
-                    key: ObjectKey(_game),
-                    game: _game,
-                    autofocus: false,
-                  ),
-                  ValueListenableBuilder<GameStatus>(
-                    valueListenable: _game.status,
-                    builder: (context, value, _) => Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Align(
-                          alignment: Alignment.topCenter,
-                          child: GameHud(
-                            score: value.score,
-                            bestScore: value.bestScore,
-                            coins: value.coins,
-                            animateFeedback: _game.visualMotion,
-                            onPause: () {
-                              _feedback.uiTap();
-                              _pause();
-                            },
+        child: ClipRect(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              GameWidget<SkyHopperGame>(
+                key: ObjectKey(_game),
+                game: _game,
+                autofocus: false,
+              ),
+              ValueListenableBuilder<GameStatus>(
+                valueListenable: _game.status,
+                builder: (context, value, _) => Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: GameHud(
+                        score: value.score,
+                        bestScore: value.bestScore,
+                        coins: value.coins,
+                        animateFeedback: _game.visualMotion,
+                        onPause: () {
+                          _feedback.uiTap();
+                          _pause();
+                        },
+                      ),
+                    ),
+                    if (widget.modeLabel case final label?)
+                      Positioned(
+                        top: 58,
+                        left: 0,
+                        right: 0,
+                        child: IgnorePointer(
+                          child: Text(
+                            label,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(
+                                  color: AppColors.deepBlue,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.2,
+                                ),
                           ),
                         ),
-                        if (widget.modeLabel case final label?)
-                          Positioned(
-                            top: 58,
-                            left: 0,
-                            right: 0,
-                            child: IgnorePointer(
-                              child: Text(
-                                label,
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context).textTheme.labelMedium
-                                    ?.copyWith(
-                                      color: AppColors.deepBlue,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 1.2,
-                                    ),
-                              ),
-                            ),
-                          ),
-                        if (value.biomeNotice case final biome?)
-                          _biomeNotice(biome),
-                        if (value.feedbackNotice case final message?)
-                          _feedbackNotice(message),
-                        if (value.phase == RunPhase.playing)
-                          Positioned(
-                            left: 16,
-                            right: 16,
-                            bottom: 16,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [_control(-1), _control(1)],
-                            ),
-                          ),
-                        if (value.phase != RunPhase.playing)
-                          ListenableBuilder(
-                            listenable: Listenable.merge([
-                              _save,
-                              if (widget.monetization != null)
-                                widget.monetization!,
-                            ]),
-                            builder: (context, _) {
-                              final offer = _rewardOffer;
-                              _logRewardOffer(offer);
-                              return GameOverOverlay(
-                                score: value.score,
-                                coins: value.coins,
-                                paused: value.phase == RunPhase.paused,
-                                causeMessage: _causeMessage(value.cause),
-                                newPersonalBest: value.newPersonalBest,
-                                previousBest: widget.personalBestScore,
-                                savePhase: _save.phase,
-                                onRetry: _save.retry,
-                                rewardActionLabel: offer.label,
-                                rewardActionEnabled: offer.enabled,
-                                rewardLoading: offer.loading,
-                                onRewardRetry: offer.retryable
-                                    ? () => unawaited(_retryRewarded())
-                                    : null,
-                                onReward: _rewardClaimPending
-                                    ? () => unawaited(_claimRewardedBonus())
-                                    : () => unawaited(_watchRewarded()),
-                                rewardBusy: _rewardBusy,
-                                rewardStatus: _rewardStatus,
-                                onContinue: () =>
-                                    unawaited(_continueAfterBreak()),
-                                onHome: () => unawaited(_homeAfterBreak()),
-                              );
-                            },
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
+                      ),
+                    if (value.biomeNotice case final biome?)
+                      _biomeNotice(biome),
+                    if (value.feedbackNotice case final message?)
+                      _feedbackNotice(message),
+                    if (value.phase == RunPhase.playing)
+                      Positioned(
+                        left: 16,
+                        right: 16,
+                        bottom: 16,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [_control(-1), _control(1)],
+                        ),
+                      ),
+                    if (value.phase != RunPhase.playing)
+                      ListenableBuilder(
+                        listenable: Listenable.merge([
+                          _save,
+                          if (widget.monetization != null) widget.monetization!,
+                        ]),
+                        builder: (context, _) {
+                          final offer = _rewardOffer;
+                          _logRewardOffer(offer);
+                          return GameOverOverlay(
+                            score: value.score,
+                            coins: value.coins,
+                            paused: value.phase == RunPhase.paused,
+                            causeMessage: _causeMessage(value.cause),
+                            newPersonalBest: value.newPersonalBest,
+                            previousBest: widget.personalBestScore,
+                            savePhase: _save.phase,
+                            onRetry: _save.retry,
+                            rewardActionLabel: offer.label,
+                            rewardActionEnabled: offer.enabled,
+                            rewardLoading: offer.loading,
+                            onRewardRetry: offer.retryable
+                                ? () => unawaited(_retryRewarded())
+                                : null,
+                            onReward: _rewardClaimPending
+                                ? () => unawaited(_claimRewardedBonus())
+                                : () => unawaited(_watchRewarded()),
+                            rewardBusy: _rewardBusy,
+                            rewardStatus: _rewardStatus,
+                            onContinue: () => unawaited(_continueAfterBreak()),
+                            onHome: () => unawaited(_homeAfterBreak()),
+                          );
+                        },
+                      ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

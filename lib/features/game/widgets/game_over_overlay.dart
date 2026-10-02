@@ -138,15 +138,25 @@ class GameOverOverlay extends StatelessWidget {
         ],
         if (rewardActionLabel case final label?) ...[
           const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: rewardBusy || !rewardActionEnabled ? null : onReward,
-            icon: rewardBusy || rewardLoading
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.ondemand_video_rounded),
-            label: Text(label),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 52),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              onPressed: rewardBusy || !rewardActionEnabled ? null : onReward,
+              icon: rewardBusy || rewardLoading
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.ondemand_video_rounded),
+              label: _singleLine(
+                label,
+                key: const Key('game-overlay-reward-label'),
+              ),
+            ),
           ),
           if (onRewardRetry != null)
             TextButton(

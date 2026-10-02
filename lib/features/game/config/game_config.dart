@@ -1,4 +1,6 @@
 abstract final class GameConfig {
+  // Orientation-invariant gameplay lane. Responsive rendering reveals more
+  // scenery outside this lane without changing simulation fairness.
   static const width = 400.0;
   static const height = 720.0;
   static const playerWidth = 32.0;

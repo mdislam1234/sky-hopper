@@ -51,13 +51,7 @@ class SkyHopperGame extends FlameGame {
     int seed = 5,
     int personalBestScore = 0,
     this.appearance = SkinAppearance.defaultSkin,
-  }) : state = GameState(seed: seed, personalBestScore: personalBestScore),
-       super(
-         camera: CameraComponent.withFixedResolution(
-           width: GameConfig.width,
-           height: GameConfig.height,
-         ),
-       ) {
+  }) : state = GameState(seed: seed, personalBestScore: personalBestScore) {
     debugMode = GameConfig.debug;
     pauseWhenBackgrounded = false;
   }
@@ -74,6 +68,11 @@ class SkyHopperGame extends FlameGame {
   final Map<StormCloudData, StormCloudComponent> _stormClouds = {};
   final Map<LightningData, LightningComponent> _lightning = {};
   final Vector2 _cameraPosition = Vector2.zero();
+  final Vector2 _logicalViewportSize = Vector2(
+    GameConfig.width,
+    GameConfig.height,
+  );
+  double _viewportScale = 1;
   Biome _lastBiome = Biome.sunny;
   Biome? _biomeNotice;
   double _biomeNoticeRemaining = 0;
@@ -83,12 +82,48 @@ class SkyHopperGame extends FlameGame {
   double _shakeElapsed = 0;
   @override
   Color backgroundColor() => const Color(0xFF75CFFF);
+
+  Vector2 get logicalViewportSize => _logicalViewportSize;
+
+  double get viewportScale => _viewportScale;
+
+  Rect get gameplayLaneInViewport {
+    final viewport = logicalViewportSize;
+    return Rect.fromLTWH(
+      (viewport.x - GameConfig.width) / 2,
+      (viewport.y - GameConfig.height) / 2,
+      GameConfig.width,
+      GameConfig.height,
+    );
+  }
+
   @override
   Future<void> onLoad() async {
     camera.viewfinder.anchor = Anchor.topLeft;
-    camera.backdrop = SkyComponent(state);
+    camera.backdrop = SkyComponent(
+      state,
+      viewportSize: () => _logicalViewportSize,
+      viewportScale: () => _viewportScale,
+    );
     world.add(PlayerComponent(state, appearance: appearance));
     _syncPlatforms();
+    _updateCameraPosition();
+  }
+
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    if (size.x <= 0 || size.y <= 0) return;
+    _viewportScale = math.min(
+      size.x / GameConfig.width,
+      size.y / GameConfig.height,
+    );
+    _logicalViewportSize.setValues(
+      size.x / _viewportScale,
+      size.y / _viewportScale,
+    );
+    camera.viewfinder.zoom = _viewportScale;
+    _updateCameraPosition();
   }
 
   void _syncPlatforms() {
@@ -185,11 +220,19 @@ class SkyHopperGame extends FlameGame {
       shakeX = math.sin(_shakeElapsed * 91) * strength;
       shakeY = math.cos(_shakeElapsed * 77) * strength * 0.55;
     }
-    _cameraPosition.setValues(shakeX, state.cameraTop + shakeY);
-    camera.viewfinder.position = _cameraPosition;
+    _updateCameraPosition(shakeX: shakeX, shakeY: shakeY);
     super.update(dt);
     _notifyStatus();
     if (state.phase == RunPhase.gameOver) pauseEngine();
+  }
+
+  void _updateCameraPosition({double shakeX = 0, double shakeY = 0}) {
+    final viewport = _logicalViewportSize;
+    _cameraPosition.setValues(
+      (GameConfig.width - viewport.x) / 2 + shakeX,
+      state.cameraTop + (GameConfig.height - viewport.y) / 2 + shakeY,
+    );
+    camera.viewfinder.position = _cameraPosition;
   }
 
   void _processFeedback(List<GameFeedbackEvent> events) {

@@ -65,7 +65,7 @@ Material's Roboto/system fallback is used for both roles. Display text earns cha
 
 ## Layout
 
-Shared menu pages respect platform safe areas, scroll as one document, use 24px horizontal and 32px vertical padding, and center a 440px maximum-width content column. Active gameplay requests portrait-up while keeping its fixed logical aspect ratio; leaving gameplay restores the app's normal orientation support. The Android window uses the sky background during that transition so the game never reveals plain gutters. HUD content remains compact, and transient streak/near-miss notices appear away from the player.
+Shared menu pages respect platform safe areas, scroll as one document, use 24px horizontal and 32px vertical padding, and center a 440px maximum-width content column. Gameplay follows the device orientation and fills the available safe area. Its responsive Flame viewport preserves a 400×720 fairness lane and uniform sprite scale while revealing additional biome scenery along the longer axis, so portrait and landscape never use gutters or stretch game art. HUD content remains compact, controls stay near the lower corners, and transient streak/near-miss notices appear away from the player.
 
 ## Elevation & Depth
 
