@@ -21,6 +21,7 @@ import '../audio/game_audio_service.dart';
 import '../audio/game_feedback_controller.dart';
 import '../audio/haptics_service.dart';
 import 'game_over_overlay.dart';
+import 'gameplay_orientation.dart';
 import '../../ads/ad_service.dart';
 import '../../ads/monetization_controller.dart';
 import '../../ads/rewarded_bonus_claim.dart';
@@ -57,6 +58,7 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
+  late final GameplayOrientationLease _orientationLease;
   late SkyHopperGame _game;
   late RunSaveController _save;
   late final GameFeedbackController _feedback;
@@ -74,6 +76,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _orientationLease = GameplayOrientation.acquire();
     _feedback =
         widget.feedbackFactory?.call() ??
         GameFeedbackController(
@@ -411,6 +414,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _orientationLease.release();
     _game.pauseEngine();
     _game.status.removeListener(_onRunChanged);
     _game.feedbackEvents.removeListener(_onFeedback);
@@ -511,7 +515,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.paleSky,
+    backgroundColor: AppColors.sky,
     body: SafeArea(
       child: Focus(
         focusNode: _focus,

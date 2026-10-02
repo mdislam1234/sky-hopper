@@ -65,7 +65,7 @@ Material's Roboto/system fallback is used for both roles. Display text earns cha
 
 ## Layout
 
-Shared menu pages respect platform safe areas, scroll as one document, use 24px horizontal and 32px vertical padding, and center a 440px maximum-width content column. The gameplay viewport keeps its fixed logical aspect ratio inside the available screen. HUD content remains compact, and transient streak/near-miss notices appear away from the player.
+Shared menu pages respect platform safe areas, scroll as one document, use 24px horizontal and 32px vertical padding, and center a 440px maximum-width content column. Active gameplay requests portrait-up while keeping its fixed logical aspect ratio; leaving gameplay restores the app's normal orientation support. The Android window uses the sky background during that transition so the game never reveals plain gutters. HUD content remains compact, and transient streak/near-miss notices appear away from the player.
 
 ## Elevation & Depth
 
@@ -93,7 +93,7 @@ Daily challenge cards state the UTC date, shared-course rule, ranked attempts re
 
 ### Forms and overlays
 
-Settings uses adaptive switches with a title, a short consequence, and a supporting icon. Pause and Game Over use the same centered overlay pattern and keep Restart/Resume and Home reachable. Save errors remain inline with an explicit retry action.
+Settings uses adaptive switches with a title, a short consequence, and a supporting icon. Pause and Game Over use the same centered overlay pattern and keep Restart/Resume and Home reachable. Their score, coin, and action labels stay on one line and scale down inside full-width controls on compact phones or with larger text. Save errors remain inline with an explicit retry action.
 
 Startup is guest-first: a missing session creates an authenticated Supabase anonymous user, while an existing guest or Google session is preserved. Home identifies a guest as `Guest Player` without an account prompt. Profile contains the single optional Google-link action, a short protection benefit, and the uninstall/app-data warning. Linking must keep the current authenticated owner and progress; it never starts a separate Google sign-in that silently abandons guest data.
 

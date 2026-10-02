@@ -11,6 +11,7 @@ import 'package:sky_hopper/features/game/sky_hopper_game.dart';
 import 'package:sky_hopper/features/game/systems/game_state.dart';
 import 'package:sky_hopper/features/game/systems/platform_generator.dart';
 import 'package:sky_hopper/features/game/widgets/game_screen.dart';
+import 'package:sky_hopper/features/game/widgets/game_over_overlay.dart';
 import 'package:sky_hopper/features/home/home_screen.dart';
 
 import 'auth_test.dart' as auth;
@@ -207,7 +208,82 @@ void main() {
     expect(state.cameraTop, oldCamera);
   });
 
+  testWidgets('Game requests portrait and restores normal orientations', (
+    tester,
+  ) async {
+    final orientationCalls = <MethodCall>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'SystemChrome.setPreferredOrientations') {
+        orientationCalls.add(call);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: GameScreen(onHome: () {})));
+    await tester.pump();
+    expect(
+      orientationCalls.map((call) => call.arguments),
+      contains(equals(<String>['DeviceOrientation.portraitUp'])),
+    );
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+    expect(orientationCalls.last.arguments, isEmpty);
+  });
+
+  testWidgets(
+    'Pause overlay stays single-line with large text on small phone',
+    (tester) async {
+      tester.view.physicalSize = const Size(280, 560);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(280, 560),
+              textScaler: TextScaler.linear(2),
+            ),
+            child: Scaffold(
+              body: GameOverOverlay(
+                score: 12345,
+                coins: 678,
+                paused: true,
+                onContinue: () {},
+                onHome: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      for (final key in [
+        const Key('game-overlay-score'),
+        const Key('game-overlay-coins'),
+        const Key('game-overlay-primary-label'),
+        const Key('game-overlay-home-label'),
+      ]) {
+        final label = tester.widget<Text>(find.byKey(key));
+        expect(label.maxLines, 1);
+        expect(label.softWrap, isFalse);
+      }
+      expect(tester.getSize(find.byType(FilledButton)).width, greaterThan(180));
+      expect(tester.getSize(find.byType(TextButton)).width, greaterThan(180));
+      expect(find.text('RESUME'), findsOneWidget);
+      expect(find.text('HOME'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final size in [
+    const Size(280, 560),
     const Size(360, 800),
     const Size(430, 900),
     const Size(1280, 720),
