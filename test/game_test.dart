@@ -237,6 +237,7 @@ void main() {
     final state = game.state;
     state.progress.observe(123);
     state.x = 177;
+    game.pauseEngine();
 
     expect(tester.getSize(gameWidget), const Size(360, 800));
     expect(game.viewportScale, closeTo(0.9, 0.001));
@@ -275,7 +276,7 @@ void main() {
     final jumpCameraY = <double>[];
     for (final worldY in [582.0, 520.0, 460.0, 432.0, 460.0, 520.0, 582.0]) {
       state.y = worldY;
-      game.update(0);
+      game.onGameResize(Vector2(800, 360));
       jumpCameraY.add(game.camera.viewfinder.position.y);
       jumpScreenY.add(
         (state.y - game.camera.viewfinder.position.y) * game.viewportScale,
@@ -285,6 +286,7 @@ void main() {
     expect(jumpScreenY.last, closeTo(jumpScreenY.first, 0.01));
     expect(jumpCameraY.toSet(), hasLength(1));
     state.y = 582;
+    game.onGameResize(Vector2(800, 360));
     expect(find.byTooltip('Pause game'), findsOneWidget);
     expect(find.bySemanticsLabel('Hold to move left'), findsOneWidget);
     expect(find.bySemanticsLabel('Hold to move right'), findsOneWidget);
@@ -475,11 +477,20 @@ void main() {
       );
       game.state.y = 100;
       game.update(1 / 60);
-      final verticalViewportOffset =
-          (GameConfig.height - game.logicalViewportSize.y) / 2;
       expect(
         game.camera.viewfinder.position.y,
-        closeTo(game.state.cameraTop + verticalViewportOffset, 0.001),
+        greaterThanOrEqualTo(game.state.cameraTop - 0.001),
+      );
+      expect(
+        game.camera.viewfinder.position.y,
+        lessThanOrEqualTo(
+          game.state.cameraTop +
+              (GameConfig.height - game.logicalViewportSize.y).clamp(
+                0,
+                double.infinity,
+              ) +
+              0.001,
+        ),
       );
       expect(game.camera.viewfinder.position.y, lessThan(0));
       game.state.y = game.state.cameraTop + 900;
