@@ -8,6 +8,7 @@ import '../game/models/game_result.dart';
 import '../ads/rewarded_bonus_claim.dart';
 import '../skins/data/skin_repository.dart';
 import '../skins/models/skin.dart';
+import 'data/account_deletion_store.dart';
 import 'services/auth_service.dart';
 
 enum AuthStage {
@@ -16,6 +17,7 @@ enum AuthStage {
   ready,
   profileError,
   sessionError,
+  accountDeleted,
   unconfigured,
 }
 
@@ -24,12 +26,14 @@ class AuthController extends ChangeNotifier {
     this.service,
     this.loadProfile,
     this.skinStore,
+    AccountDeletionStore? deletionStore,
     this.offlinePreview = false,
-  });
+  }) : deletionStore = deletionStore ?? MemoryAccountDeletionStore();
   final AuthService? service;
   final Future<Profile?> Function()? loadProfile;
   final bool offlinePreview;
   final SkinStore? skinStore;
+  final AccountDeletionStore deletionStore;
   List<Skin> catalog = const [];
   int _profileReadGeneration = 0;
   SkinAppearance get selectedAppearance {
@@ -61,13 +65,17 @@ class AuthController extends ChangeNotifier {
   AuthIdentity? user;
   Profile? profile;
   String? message;
+  String? deletionError;
   bool signingIn = false;
   bool signingOut = false;
+  bool deletingAccount = false;
+  bool continuingAsGuest = false;
   bool _started = false;
   bool _disposed = false;
   bool _restoring = false;
   int _generation = 0;
   int _loginAttempt = 0;
+  String? _deletedUserId;
   StreamSubscription<void>? _subscription;
   Timer? _loginTimer;
 
@@ -79,9 +87,15 @@ class AuthController extends ChangeNotifier {
       _notify();
       return;
     }
+    // Supabase can emit its initial auth event as soon as the listener is
+    // attached. Hold session recovery until the deletion checkpoint has been
+    // read, otherwise that event can create a guest while startup is still
+    // deciding whether the Account Deleted screen is authoritative.
+    _restoring = true;
     _subscription = service!.changes.listen(
       (_) {
         if (_restoring) return;
+        if (stage == AuthStage.accountDeleted) return;
         if (service!.currentUser == null) {
           unawaited(retrySession());
         } else {
@@ -97,6 +111,29 @@ class AuthController extends ChangeNotifier {
         _notify();
       },
     );
+    var awaitingGuestContinuation = false;
+    try {
+      awaitingGuestContinuation = await deletionStore
+          .isAwaitingGuestContinuation();
+    } catch (_) {
+      // A local preference read must not prevent normal session recovery.
+    }
+    if (awaitingGuestContinuation) {
+      try {
+        await service!.clearLocalSession().timeout(const Duration(seconds: 15));
+      } catch (_) {
+        // The deletion-complete screen must remain authoritative even if local
+        // secure storage cleanup needs another attempt before guest creation.
+      }
+      _restoring = false;
+      user = null;
+      profile = null;
+      catalog = const [];
+      stage = AuthStage.accountDeleted;
+      _notify();
+      return;
+    }
+    _restoring = false;
     await retrySession();
   }
 
@@ -431,6 +468,107 @@ class AuthController extends ChangeNotifier {
     } finally {
       _restoring = false;
       signingOut = false;
+      _notify();
+    }
+  }
+
+  Future<bool> deleteAccount() async {
+    if (deletingAccount ||
+        service == null ||
+        stage != AuthStage.ready ||
+        user == null ||
+        profile?.id != user!.id) {
+      return false;
+    }
+    final owner = user!.id;
+    deletingAccount = true;
+    _restoring = true;
+    message = null;
+    deletionError = null;
+    _notify();
+    var serverConfirmed = false;
+    try {
+      await service!.deleteCurrentAccount().timeout(
+        const Duration(seconds: 30),
+      );
+      serverConfirmed = true;
+      try {
+        await service!.clearLocalSession().timeout(const Duration(seconds: 15));
+      } catch (_) {
+        // The server-confirmed deletion is irreversible. Continue to the
+        // deleted state and retry local cleanup before guest creation.
+      }
+      try {
+        // Supabase's local sign-out updates its persisted auth state. Record
+        // our independent post-deletion checkpoint afterwards so auth cleanup
+        // cannot remove it from the shared preferences backend.
+        await deletionStore.markAwaitingGuestContinuation();
+      } catch (_) {
+        // The in-memory deleted state still prevents automatic guest creation.
+      }
+      _generation++;
+      _profileReadGeneration++;
+      _deletedUserId = owner;
+      user = null;
+      profile = null;
+      catalog = const [];
+      signingIn = false;
+      signingOut = false;
+      _loginAttempt++;
+      _loginTimer?.cancel();
+      stage = AuthStage.accountDeleted;
+      message = null;
+      deletionError = null;
+      return true;
+    } catch (_) {
+      if (!_disposed && !serverConfirmed) {
+        stage = AuthStage.ready;
+        deletionError = 'Account deletion was not confirmed. Check your connection before trying again.';
+      }
+      return serverConfirmed;
+    } finally {
+      _restoring = false;
+      deletingAccount = false;
+      _notify();
+    }
+  }
+
+  Future<void> continueAsGuest() async {
+    if (continuingAsGuest ||
+        service == null ||
+        stage != AuthStage.accountDeleted) {
+      return;
+    }
+    continuingAsGuest = true;
+    _restoring = true;
+    message = null;
+    _notify();
+    try {
+      await service!.clearLocalSession().timeout(const Duration(seconds: 15));
+      await service!.signInAnonymously().timeout(const Duration(seconds: 20));
+      final next = service!.currentUser;
+      if (next == null || next.id == _deletedUserId) {
+        throw StateError('A new guest account was not created.');
+      }
+      try {
+        await deletionStore.clearAwaitingGuestContinuation();
+      } catch (_) {
+        // The confirmed new session remains usable; another local cleanup can
+        // be attempted on a later successful continuation.
+      }
+      _deletedUserId = null;
+      _restoring = false;
+      await _resolve(force: true);
+    } catch (_) {
+      _restoring = false;
+      if (!_disposed) {
+        stage = AuthStage.accountDeleted;
+        message =
+            'Guest play could not start. Check your connection and retry.';
+      }
+    } finally {
+      _restoring = false;
+      continuingAsGuest = false;
       _notify();
     }
   }

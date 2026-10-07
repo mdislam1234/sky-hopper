@@ -1,0 +1,4 @@
+project_id = "sky_hopper"
+
+[functions.delete-account]
+verify_jwt = true

@@ -98,6 +98,11 @@ class _PreviewIdentity implements AuthService {
   @override
   Future<bool> linkGoogleIdentity() async => false;
   @override
+  Future<void> deleteCurrentAccount() async =>
+      throw UnsupportedError('Offline preview');
+  @override
+  Future<void> clearLocalSession() async {}
+  @override
   Future<void> signOut() async {}
 }
 

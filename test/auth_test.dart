@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sky_hopper/app.dart';
+import 'package:sky_hopper/features/auth/account_deleted_screen.dart';
 import 'package:sky_hopper/features/auth/auth_controller.dart';
+import 'package:sky_hopper/features/auth/data/account_deletion_store.dart';
 import 'package:sky_hopper/features/auth/login_screen.dart';
 import 'package:sky_hopper/features/auth/services/auth_service.dart';
 import 'package:sky_hopper/features/game/widgets/game_screen.dart';
@@ -20,11 +22,17 @@ class FakeAuthService implements AuthService {
   int guestCreates = 0;
   int linkLaunches = 0;
   int signOuts = 0;
+  int deleteCalls = 0;
+  int localClears = 0;
+  final deletedUsers = <String>[];
   bool guestCreateFails = false;
   bool linkLaunchFails = false;
   bool logoutFails = false;
+  bool deleteFails = false;
+  List<String>? operationLog;
   Completer<bool>? linkLaunch;
   Completer<void>? restoration;
+  Completer<void>? deletionRequest;
 
   @override
   Stream<void> get changes => events.stream;
@@ -38,7 +46,10 @@ class FakeAuthService implements AuthService {
   Future<void> signInAnonymously() async {
     guestCreates++;
     if (guestCreateFails) throw Exception('private anonymous response');
-    currentUser ??= const AuthIdentity(id: 'guest-user', isAnonymous: true);
+    currentUser ??= AuthIdentity(
+      id: guestCreates == 1 ? 'guest-user' : 'guest-user-$guestCreates',
+      isAnonymous: true,
+    );
     events.add(null);
   }
 
@@ -76,6 +87,25 @@ class FakeAuthService implements AuthService {
   }
 
   @override
+  Future<void> deleteCurrentAccount() async {
+    deleteCalls++;
+    operationLog?.add('server-delete');
+    await deletionRequest?.future;
+    if (deleteFails) throw Exception('private deletion response');
+    final id = currentUser?.id;
+    if (id == null) throw StateError('missing user');
+    deletedUsers.add(id);
+  }
+
+  @override
+  Future<void> clearLocalSession() async {
+    localClears++;
+    operationLog?.add('local-clear');
+    currentUser = null;
+    events.add(null);
+  }
+
+  @override
   Future<void> signOut() async {
     signOuts++;
     if (logoutFails) throw Exception('private failure');
@@ -84,23 +114,47 @@ class FakeAuthService implements AuthService {
   }
 }
 
-Profile profileFor(String id, {String? displayName}) => Profile(
-  id: id,
-  displayName: displayName,
-  totalCoins: 42,
-  selectedSkin: 'default',
-  createdAt: DateTime.utc(2026),
-  updatedAt: DateTime.utc(2026),
-);
+class RecordingDeletionStore extends MemoryAccountDeletionStore {
+  RecordingDeletionStore(this.operationLog);
+
+  final List<String> operationLog;
+
+  @override
+  Future<void> markAwaitingGuestContinuation() async {
+    operationLog.add('checkpoint');
+    await super.markAwaitingGuestContinuation();
+  }
+}
+
+class DeferredDeletionStore extends MemoryAccountDeletionStore {
+  DeferredDeletionStore(this.read);
+
+  final Completer<bool> read;
+
+  @override
+  Future<bool> isAwaitingGuestContinuation() => read.future;
+}
+
+Profile profileFor(String id, {String? displayName, int totalCoins = 42}) =>
+    Profile(
+      id: id,
+      displayName: displayName,
+      totalCoins: totalCoins,
+      selectedSkin: 'default',
+      createdAt: DateTime.utc(2026),
+      updatedAt: DateTime.utc(2026),
+    );
 
 final testProfile = profileFor('test-user', displayName: 'Cloud Jumper');
 
 AuthController createAuth(
   FakeAuthService service, {
   Future<Profile?> Function()? loader,
+  AccountDeletionStore? deletionStore,
 }) {
   final controller = AuthController(
     service: service,
+    deletionStore: deletionStore,
     loadProfile:
         loader ??
         () async {
@@ -276,6 +330,204 @@ void main() {
     await tester.pumpAndSettle();
     expect(auth.signingIn, isFalse);
     expect(find.text('Sign in with Google'), findsOneWidget);
+  });
+
+  testWidgets('Profile exposes permanent deletion and confirmation cancels', (
+    tester,
+  ) async {
+    final service = FakeAuthService();
+    final auth = createAuth(service);
+    await launchApp(tester, auth);
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Delete Account'));
+    expect(find.text('Delete Account'), findsOneWidget);
+    await tester.tap(find.text('Delete Account'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete account?'), findsOneWidget);
+    expect(find.textContaining('permanently deletes'), findsOneWidget);
+    expect(find.textContaining('This cannot be undone'), findsOneWidget);
+    await tester.tap(find.text('CANCEL'));
+    await tester.pumpAndSettle();
+    expect(service.deleteCalls, 0);
+    expect(find.text('Delete account?'), findsNothing);
+    expect(find.byType(ProfileScreen), findsOneWidget);
+  });
+
+  testWidgets('Deletion confirmation fits a small phone with large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(280, 400);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final auth = createAuth(FakeAuthService());
+    await launchApp(tester, auth);
+    await tester.ensureVisible(find.text('Profile'));
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.text('Delete Account'));
+    await tester.tap(find.text('Delete Account'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete account?'), findsOneWidget);
+    expect(find.text('CANCEL'), findsOneWidget);
+    expect(find.text('DELETE ACCOUNT'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Duplicate deletion submissions are blocked while pending', (
+    tester,
+  ) async {
+    final service = FakeAuthService()..deletionRequest = Completer<void>();
+    final auth = createAuth(service);
+    await launchApp(tester, auth);
+    final first = auth.deleteAccount();
+    await tester.pump();
+    expect(auth.deletingAccount, isTrue);
+    expect(await auth.deleteAccount(), isFalse);
+    expect(service.deleteCalls, 1);
+    service.deletionRequest!.complete();
+    expect(await first, isTrue);
+    await tester.pumpAndSettle();
+    expect(service.deleteCalls, 1);
+    expect(find.byType(AccountDeletedScreen), findsOneWidget);
+  });
+
+  testWidgets('Deletion checkpoint is written after local auth cleanup', (
+    tester,
+  ) async {
+    final operations = <String>[];
+    final service = FakeAuthService()..operationLog = operations;
+    final auth = createAuth(
+      service,
+      deletionStore: RecordingDeletionStore(operations),
+    );
+    await launchApp(tester, auth);
+    expect(await auth.deleteAccount(), isTrue);
+    await tester.pumpAndSettle();
+    expect(operations, ['server-delete', 'local-clear', 'checkpoint']);
+    expect(find.byType(AccountDeletedScreen), findsOneWidget);
+  });
+
+  testWidgets('Server failure keeps the account and never claims deletion', (
+    tester,
+  ) async {
+    final service = FakeAuthService()..deleteFails = true;
+    final auth = createAuth(service);
+    await launchApp(tester, auth);
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Delete Account'));
+    await tester.tap(find.text('Delete Account'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('DELETE ACCOUNT'));
+    await tester.pumpAndSettle();
+    expect(auth.stage, AuthStage.ready);
+    expect(auth.user?.id, 'guest-user');
+    expect(auth.profile, isNotNull);
+    expect(find.text('Delete account?'), findsOneWidget);
+    expect(find.textContaining('was not confirmed'), findsOneWidget);
+    expect(find.textContaining('private deletion'), findsNothing);
+    expect(find.byType(AccountDeletedScreen), findsNothing);
+  });
+
+  testWidgets('Anonymous deletion clears state and creates a clean new guest', (
+    tester,
+  ) async {
+    final service = FakeAuthService();
+    final store = MemoryAccountDeletionStore();
+    final auth = createAuth(
+      service,
+      deletionStore: store,
+      loader: () async {
+        final identity = service.currentUser!;
+        return profileFor(
+          identity.id,
+          displayName: identity.isAnonymous ? null : 'Cloud Jumper',
+          totalCoins: identity.id == 'guest-user' ? 42 : 0,
+        );
+      },
+    );
+    await launchApp(tester, auth);
+    final deletedId = auth.user!.id;
+    expect(auth.profile?.totalCoins, 42);
+    expect(await auth.deleteAccount(), isTrue);
+    await tester.pumpAndSettle();
+    expect(auth.user, isNull);
+    expect(auth.profile, isNull);
+    expect(store.awaitingGuestContinuation, isTrue);
+    expect(find.text('ACCOUNT DELETED'), findsOneWidget);
+    expect(
+      find.text(
+        'Your Sky Hopper account and saved progress have been deleted.',
+      ),
+      findsOneWidget,
+    );
+    expect(service.deletedUsers, [deletedId]);
+    expect(service.guestCreates, 1);
+
+    await tester.tap(find.text('CONTINUE AS GUEST'));
+    await tester.pumpAndSettle();
+    expect(auth.stage, AuthStage.ready);
+    expect(auth.isGuest, isTrue);
+    expect(auth.user?.id, isNot(deletedId));
+    expect(auth.profile?.id, auth.user?.id);
+    expect(auth.profile?.totalCoins, 0);
+    expect(store.awaitingGuestContinuation, isFalse);
+    expect(find.byType(HomeScreen), findsOneWidget);
+  });
+
+  testWidgets('Google-linked owner follows the same permanent deletion path', (
+    tester,
+  ) async {
+    final service = FakeAuthService()..useGoogleSession();
+    final auth = createAuth(service);
+    await launchApp(tester, auth);
+    expect(auth.isGuest, isFalse);
+    expect(await auth.deleteAccount(), isTrue);
+    await tester.pumpAndSettle();
+    expect(service.deletedUsers, ['test-user']);
+    expect(auth.user, isNull);
+    expect(auth.profile, isNull);
+    expect(find.byType(AccountDeletedScreen), findsOneWidget);
+  });
+
+  testWidgets('Pending deleted state never silently creates another guest', (
+    tester,
+  ) async {
+    final service = FakeAuthService();
+    final store = MemoryAccountDeletionStore(awaitingGuestContinuation: true);
+    final auth = createAuth(service, deletionStore: store);
+    await launchApp(tester, auth);
+    expect(auth.stage, AuthStage.accountDeleted);
+    expect(service.guestCreates, 0);
+    expect(find.byType(AccountDeletedScreen), findsOneWidget);
+  });
+
+  testWidgets('Initial auth event cannot race the deletion checkpoint read', (
+    tester,
+  ) async {
+    final service = FakeAuthService();
+    final read = Completer<bool>();
+    final auth = createAuth(
+      service,
+      deletionStore: DeferredDeletionStore(read),
+    );
+
+    await tester.pumpWidget(SkyHopperApp(authController: auth));
+    await tester.pump(const Duration(seconds: 2));
+    service.events.add(null);
+    await tester.pump();
+    expect(service.guestCreates, 0);
+
+    read.complete(true);
+    await tester.pumpAndSettle();
+    expect(auth.stage, AuthStage.accountDeleted);
+    expect(service.guestCreates, 0);
+    expect(find.byType(AccountDeletedScreen), findsOneWidget);
   });
 
   testWidgets('Signing out a permanent user immediately creates a guest', (

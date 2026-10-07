@@ -12,6 +12,148 @@ class ProfileScreen extends StatelessWidget {
   final AuthController controller;
   final VoidCallback onBack;
 
+  Future<void> _confirmDeletion(BuildContext context) async {
+    var deleting = false;
+    String? error;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) {
+          final media = MediaQuery.of(context);
+          final maxHeight =
+              media.size.height -
+              media.padding.vertical -
+              media.viewInsets.vertical -
+              32;
+          final cancelButton = TextButton(
+            autofocus: true,
+            onPressed: deleting
+                ? null
+                : () => Navigator.of(dialogContext).pop(),
+            child: const FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text('CANCEL'),
+            ),
+          );
+          final deleteButton = FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            onPressed: deleting
+                ? null
+                : () async {
+                    setState(() {
+                      deleting = true;
+                      error = null;
+                    });
+                    final deleted = await controller.deleteAccount();
+                    if (!dialogContext.mounted) return;
+                    if (deleted) {
+                      Navigator.of(dialogContext).pop();
+                    } else {
+                      setState(() {
+                        deleting = false;
+                        error = controller.deletionError;
+                      });
+                    }
+                  },
+            child: deleting
+                ? const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  )
+                : const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text('DELETE ACCOUNT'),
+                  ),
+          );
+          return PopScope(
+            canPop: !deleting,
+            child: Dialog(
+              insetPadding: const EdgeInsets.all(16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 440,
+                  maxHeight: maxHeight,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Delete account?',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall,
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'This permanently deletes your Sky Hopper account and saved game progress, including your profile, scores, coins, skins, missions, achievements, streaks, and other account-linked progress. This cannot be undone.',
+                              ),
+                              if (error != null) ...[
+                                const SizedBox(height: 16),
+                                Semantics(
+                                  liveRegion: true,
+                                  child: Text(
+                                    error!,
+                                    style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .error,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final stackActions =
+                              constraints.maxWidth < 320 ||
+                              media.textScaler.scale(14) > 18;
+                          if (stackActions) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                SizedBox(height: 48, child: deleteButton),
+                                const SizedBox(height: 8),
+                                SizedBox(height: 48, child: cancelButton),
+                              ],
+                            );
+                          }
+                          return Row(
+                            children: [
+                              Expanded(child: cancelButton),
+                              const SizedBox(width: 8),
+                              Expanded(child: deleteButton),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = controller.profile!;
@@ -129,6 +271,26 @@ class ProfileScreen extends StatelessWidget {
               child: Text(controller.message!, textAlign: TextAlign.center),
             ),
           ],
+          const SizedBox(height: 32),
+          const Divider(),
+          const SizedBox(height: 20),
+          Text('Account', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          const Text(
+            'Permanently remove this account and all saved Sky Hopper progress.',
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+              side: BorderSide(color: Theme.of(context).colorScheme.error),
+            ),
+            onPressed: controller.deletingAccount
+                ? null
+                : () => _confirmDeletion(context),
+            icon: const Icon(Icons.delete_forever_outlined),
+            label: const Text('Delete Account'),
+          ),
         ],
       ),
     );

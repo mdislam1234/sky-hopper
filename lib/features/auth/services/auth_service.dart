@@ -22,6 +22,8 @@ abstract class AuthService {
   Future<void> restoreSession();
   Future<void> signInAnonymously();
   Future<bool> linkGoogleIdentity();
+  Future<void> deleteCurrentAccount();
+  Future<void> clearLocalSession();
   Future<void> signOut();
 }
 
@@ -86,6 +88,23 @@ class SupabaseAuthService implements AuthService {
         ? LaunchMode.platformDefault
         : LaunchMode.externalApplication,
   );
+
+  @override
+  Future<void> deleteCurrentAccount() async {
+    if (currentUser == null) throw StateError('No authenticated account.');
+    final response = await client.functions.invoke('delete-account');
+    final data = response.data;
+    if (response.status < 200 ||
+        response.status >= 300 ||
+        data is! Map ||
+        data['deleted'] != true) {
+      throw StateError('Account deletion was not confirmed.');
+    }
+  }
+
+  @override
+  Future<void> clearLocalSession() =>
+      client.auth.signOut(scope: SignOutScope.local);
 
   @override
   Future<void> signOut() => client.auth.signOut();

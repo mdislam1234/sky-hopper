@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#75cfff">
+    <title>Delete your Sky Hopper account</title>
+    <style>
+      :root {
+        color: #123b69;
+        background: #eaf8ff;
+        font: 17px/1.65 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body {
+        min-height: 100vh;
+        margin: 0;
+        background: linear-gradient(180deg, #75cfff 0, #eaf8ff 38%, #fff 100%);
+      }
+      main { width: min(100% - 32px, 760px); margin: 0 auto; padding: 40px 0 72px; }
+      article {
+        background: #fff;
+        border: 1px solid #bfe5f8;
+        border-radius: 24px;
+        padding: clamp(24px, 5vw, 48px);
+        box-shadow: 0 18px 50px #123b6917;
+      }
+      .brand { margin: 0 0 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+      h1, h2 { line-height: 1.2; }
+      h1 { margin: 0; font-size: clamp(2rem, 8vw, 3.4rem); }
+      h2 { margin: 2rem 0 .5rem; font-size: 1.25rem; }
+      ol, ul { padding-left: 1.35rem; }
+      .notice {
+        margin: 24px 0;
+        padding: 18px 20px;
+        border-left: 5px solid #ff6f61;
+        border-radius: 12px;
+        background: #fff4f2;
+      }
+      .button {
+        display: inline-block;
+        min-height: 48px;
+        margin-top: 8px;
+        padding: 11px 22px;
+        border-radius: 24px;
+        background: #123b69;
+        color: #fff;
+        font-weight: 800;
+        text-decoration: none;
+      }
+      a { color: #075f9f; }
+      a:focus-visible { outline: 3px solid #ff9f1c; outline-offset: 4px; }
+      .meta { color: #526b86; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <article aria-labelledby="page-title">
+        <p class="brand">Sky Hopper · AziTech Studio</p>
+        <h1 id="page-title">Delete your account</h1>
+        <p class="meta">Permanent account and game-data deletion</p>
+
+        <div class="notice">
+          Deleting your account permanently removes your Sky Hopper account and account-linked game progress. This cannot be undone.
+        </div>
+
+        <h2>Delete inside the app</h2>
+        <ol>
+          <li>Open Sky Hopper and go to <strong>Profile</strong>.</li>
+          <li>Choose <strong>Delete Account</strong>.</li>
+          <li>Read the confirmation and choose <strong>DELETE ACCOUNT</strong>.</li>
+        </ol>
+        <p>The app waits for server confirmation, signs out the deleted account, and lets you decide whether to create a new, clean Guest account.</p>
+
+        <h2>Request deletion without the app</h2>
+        <p>If you uninstalled Sky Hopper or cannot access the app, email AziTech Studio support. You do not need to reinstall the game.</p>
+        <p><a class="button" href="mailto:support.azitechstudio@gmail.com?subject=Sky%20Hopper%20account%20deletion%20request">Email account-deletion support</a></p>
+        <p>Include enough non-secret account information for support to identify and verify the account. Never send a password, access token, OAuth code, or provider token.</p>
+
+        <h2>Data that is deleted</h2>
+        <ul>
+          <li>the Supabase authentication account and linked Google identity, if present;</li>
+          <li>the Sky Hopper profile, display information, and coin balance;</li>
+          <li>saved scores, runs, and leaderboard-linked records;</li>
+          <li>owned and selected skins;</li>
+          <li>missions, achievements, streaks, and Daily Challenge progress;</li>
+          <li>rewarded-ad reward records and other account-linked game progress.</li>
+        </ul>
+        <p>Deleting Sky Hopper data does not delete your Google Account. Sky Hopper does not intentionally retain a separate copy of account-linked game records after account deletion.</p>
+
+        <h2>Contact</h2>
+        <p>Email <a href="mailto:support.azitechstudio@gmail.com">support.azitechstudio@gmail.com</a> for account-deletion or privacy questions.</p>
+        <p><a href="/privacy/">Read the privacy policy</a> · <a href="/">Return to Sky Hopper</a></p>
+      </article>
+    </main>
+  </body>
+</html>

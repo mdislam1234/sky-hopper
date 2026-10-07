@@ -11,6 +11,7 @@ import '../profile/profile_screen.dart';
 import '../splash/splash_screen.dart';
 import 'auth_controller.dart';
 import 'login_screen.dart';
+import 'account_deleted_screen.dart';
 import '../leaderboard/data/leaderboard_repository.dart';
 import '../leaderboard/leaderboard_screen.dart';
 import '../skins/skins_screen.dart';
@@ -108,6 +109,9 @@ class _AuthGateState extends State<AuthGate> {
           if (mounted) setState(() => _splashComplete = true);
         },
       );
+    } else if (auth.stage == AuthStage.accountDeleted) {
+      route = AppRoutes.accountDeleted;
+      screen = AccountDeletedScreen(controller: auth);
     } else if (auth.stage == AuthStage.ready) {
       route = AppRoutes.home;
       screen = HomeScreen(

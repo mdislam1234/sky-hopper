@@ -83,7 +83,7 @@ Flutter Material components own focus, hover, press, selected, disabled, and ada
 
 ### Buttons and actions
 
-Gold filled buttons indicate the primary next action. Tonal or text treatments carry pause, back, profile, and secondary navigation. Icons support labels; unfamiliar icon-only controls require a tooltip and semantic name. Dangerous or irreversible controls are outside the Phase 11 game-feel surface.
+Gold filled buttons indicate the primary next action. Tonal or text treatments carry pause, back, profile, and secondary navigation. Icons support labels; unfamiliar icon-only controls require a tooltip and semantic name. Permanent account deletion uses a separated coral/error outline on Profile and the solid error treatment only in its confirmation dialog.
 
 ### Navigation and data display
 
@@ -96,6 +96,8 @@ Daily challenge cards state the UTC date, shared-course rule, ranked attempts re
 Settings uses adaptive switches with a title, a short consequence, and a supporting icon. Pause and Game Over use the same centered overlay pattern and keep Restart/Resume and Home reachable. Their score, coin, and action labels stay on one line and scale down inside full-width controls on compact phones or with larger text. Save errors remain inline with an explicit retry action.
 
 Startup is guest-first: a missing session creates an authenticated Supabase anonymous user, while an existing guest or Google session is preserved. Home identifies a guest as `Guest Player` without an account prompt. Profile contains the single optional Google-link action, a short protection benefit, and the uninstall/app-data warning. Linking must keep the current authenticated owner and progress; it never starts a separate Google sign-in that silently abandons guest data.
+
+Profile separates permanent account deletion from routine identity actions. The confirmation names every affected category, keeps Cancel initially focused, blocks duplicate submission, and remains open with sanitized retry guidance after a server error. Only server-confirmed deletion opens the dedicated Account Deleted state. That state does not create another anonymous account until the player chooses `CONTINUE AS GUEST`.
 
 Android Settings may add Google's `Privacy Options` row only when UMP requires the entry point. It follows the existing ListTile grammar and opens the provider-owned form; no custom consent card or disable-ads switch belongs here.
 

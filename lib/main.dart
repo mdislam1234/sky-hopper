@@ -4,6 +4,7 @@ import 'app.dart';
 import 'core/data/supabase_bootstrap.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/services/auth_service.dart';
+import 'features/auth/data/account_deletion_store.dart';
 import 'features/profile/data/profile_repository.dart';
 import 'features/skins/data/skin_repository.dart';
 import 'features/leaderboard/data/leaderboard_repository.dart';
@@ -32,6 +33,7 @@ Future<Widget> _initializeApp() async {
           service: SupabaseAuthService(client),
           loadProfile: ProfileRepository(client).fetchCurrent,
           skinStore: SkinRepository(client),
+          deletionStore: SharedPreferencesAccountDeletionStore(),
         );
   final progression = client == null ? null : ProgressionRepository(client);
   final monetization = MonetizationController(createAdService());
