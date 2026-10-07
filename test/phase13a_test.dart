@@ -294,7 +294,7 @@ void main() {
         contains('-keep class * extends androidx.room.RoomDatabase'),
       );
       expect(proguard, contains('<init>();'));
-      expect(pubspec, contains('version: 1.0.2+3'));
+      expect(pubspec, contains('version: 1.0.3+4'));
     });
 
     test('privacy page and unpublished app-ads template exist', () {
